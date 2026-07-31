@@ -36,7 +36,7 @@ export default function SettingsPage() {
               <label className="text-xs font-semibold text-slate-400">First Name</label>
               <input
                 type="text"
-                defaultValue="Amna"
+                defaultValue="Hassam"
                 className="w-full bg-slate-50/50 border border-slate-100 rounded-xl px-4 py-2 text-xs text-slate-700 focus:outline-none"
               />
             </div>
@@ -44,7 +44,7 @@ export default function SettingsPage() {
               <label className="text-xs font-semibold text-slate-400">Last Name</label>
               <input
                 type="text"
-                defaultValue="Henry"
+                defaultValue="Naveed"
                 className="w-full bg-slate-50/50 border border-slate-100 rounded-xl px-4 py-2 text-xs text-slate-700 focus:outline-none"
               />
             </div>
@@ -52,7 +52,7 @@ export default function SettingsPage() {
               <label className="text-xs font-semibold text-slate-400">Email Address</label>
               <input
                 type="email"
-                defaultValue="amna@prodify.com"
+                defaultValue="hassam@prodify.com"
                 className="w-full bg-slate-50/50 border border-slate-100 rounded-xl px-4 py-2 text-xs text-slate-700 focus:outline-none"
               />
             </div>

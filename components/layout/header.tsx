@@ -31,10 +31,10 @@ export default function Header() {
         {/* User Info & Avatar */}
         <div className="flex items-center gap-3 pl-4 border-l border-slate-100">
           <div className="w-9 h-9 rounded-full bg-indigo-600 flex items-center justify-center text-white text-sm font-semibold select-none shadow-sm">
-            AI
+            HN
           </div>
           <div className="hidden sm:block">
-            <h4 className="font-semibold text-slate-800 text-sm leading-tight">Amna</h4>
+            <h4 className="font-semibold text-slate-800 text-sm leading-tight">Hassam</h4>
             <p className="text-xs text-slate-400 font-medium">Personal workspace</p>
           </div>
         </div>

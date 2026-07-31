@@ -15,7 +15,7 @@ const weekDays = [
 
 const meetingAttendees = [
   { name: "Courtney Henry", avatar: "CH", color: "bg-orange-500" },
-  { name: "Amna", avatar: "AM", color: "bg-indigo-600" },
+  { name: "Hassam", avatar: "HN", color: "bg-indigo-600" },
   { name: "Devin", avatar: "DV", color: "bg-emerald-500" },
   { name: "John", avatar: "JD", color: "bg-pink-500" },
 ];

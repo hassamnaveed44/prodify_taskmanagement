@@ -6,7 +6,7 @@ import { cn } from "@/lib/utils";
 const mockChats = [
   { id: "1", name: "Courtney Henry", message: "Hey, can you review the new branding mockups?", time: "09:32 am", unread: true },
   { id: "2", name: "Devin Allen", message: "Sure, let's connect tomorrow for the brainstorm.", time: "Yesterday", unread: false },
-  { id: "3", name: "Amna", message: "Workspace setup is complete, let me know when you push.", time: "Jul 28", unread: false },
+  { id: "3", name: "Hassam", message: "Workspace setup is complete, let me know when you push.", time: "Jul 28", unread: false },
 ];
 
 export default function InboxPage() {

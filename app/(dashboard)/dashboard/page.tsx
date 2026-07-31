@@ -17,7 +17,7 @@ export default function DashboardPage() {
         </p>
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div>
-            <h2 className="text-3xl font-bold text-slate-800 tracking-tight">Hello, Amna</h2>
+            <h2 className="text-3xl font-bold text-slate-800 tracking-tight">Hello, Hassam</h2>
             <div className="flex flex-wrap items-center gap-2 mt-1">
               <span className="text-xl font-medium text-[#14b8a6]">How can I help you today?</span>
               
