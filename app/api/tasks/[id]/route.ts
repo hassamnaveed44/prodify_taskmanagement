@@ -57,6 +57,37 @@ export async function PATCH(req: NextRequest, { params }: RouteParams) {
       },
     });
 
+    // Trigger real-time WebSocket warning/notification
+    if ((global as any).wss) {
+      const wss = (global as any).wss;
+      const author = payload.name || "A teammate";
+      
+      let message = `📝 Task "${updatedTask.name}" details were updated by ${author}.`;
+      if (status !== undefined) {
+        if (status === "COMPLETED") {
+          message = `✅ Task "${updatedTask.name}" was marked as COMPLETED by ${author}!`;
+        } else {
+          const statusLabel = status === "IN_PROGRESS" ? "In Progress" : status === "TODO" ? "To Do" : status.toLowerCase();
+          message = `🔄 Task "${updatedTask.name}" status was moved to "${statusLabel}" by ${author}!`;
+        }
+      } else if (priority !== undefined) {
+        message = `⚡ Task "${updatedTask.name}" priority was set to "${priority}" by ${author}!`;
+      } else if (dueDate !== undefined) {
+        message = `📅 Task "${updatedTask.name}" due date was updated by ${author}.`;
+      }
+
+      const broadcastMsg = JSON.stringify({
+        type: "notification",
+        message,
+      });
+
+      wss.clients.forEach((client: any) => {
+        if (client.readyState === 1) { // OPEN
+          client.send(broadcastMsg);
+        }
+      });
+    }
+
     return NextResponse.json({
       status: "success",
       task: {

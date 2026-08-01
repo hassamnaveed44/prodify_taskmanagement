@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import Sidebar from "@/components/layout/sidebar";
 import Header from "@/components/layout/header";
 import { cn } from "@/lib/utils";
+import { BellRing, X } from "lucide-react";
 
 interface UserProfile {
   id: string;
@@ -26,6 +27,11 @@ interface ProjectProfile {
   color: string;
 }
 
+interface ToastNotification {
+  id: string;
+  message: string;
+}
+
 export default function DashboardLayout({
   children,
 }: Readonly<{
@@ -35,6 +41,9 @@ export default function DashboardLayout({
   const [user, setUser] = useState<UserProfile | null>(null);
   const [workspace, setWorkspace] = useState<WorkspaceProfile | null>(null);
   const [projects, setProjects] = useState<ProjectProfile[]>([]);
+  
+  // Real-time system notifications state
+  const [toasts, setToasts] = useState<ToastNotification[]>([]);
 
   // Fetch logged-in user profile details on load
   const fetchProfileData = () => {
@@ -57,6 +66,41 @@ export default function DashboardLayout({
     fetchProfileData();
   }, []);
 
+  // Listen to background WebSocket notifications for live updates
+  useEffect(() => {
+    if (!user) return;
+
+    const wsProtocol = window.location.protocol === "https:" ? "wss:" : "ws:";
+    const wsUrl = `${wsProtocol}//${window.location.host}/api/ws`;
+    const socket = new WebSocket(wsUrl);
+
+    socket.onmessage = (event) => {
+      try {
+        const packet = JSON.parse(event.data);
+        if (packet.type === "notification" && packet.message) {
+          const newToast: ToastNotification = {
+            id: Math.random().toString(),
+            message: packet.message,
+          };
+          
+          // Append to toasts list
+          setToasts((prev) => [...prev, newToast]);
+
+          // Auto remove toast after 4.5 seconds
+          setTimeout(() => {
+            setToasts((prev) => prev.filter((t) => t.id !== newToast.id));
+          }, 4500);
+        }
+      } catch (err) {
+        console.error("Failed to parse background live notification:", err);
+      }
+    };
+
+    return () => {
+      socket.close();
+    };
+  }, [user]);
+
   // Handle Project Creation from Sidebar (Real POST API integration)
   const handleCreateProject = async (projectName: string) => {
     try {
@@ -74,6 +118,10 @@ export default function DashboardLayout({
     } catch (err) {
       console.error("Project creation failed:", err);
     }
+  };
+
+  const removeToast = (id: string) => {
+    setToasts((prev) => prev.filter((t) => t.id !== id));
   };
 
   return (
@@ -130,6 +178,32 @@ export default function DashboardLayout({
             {children}
           </div>
         </main>
+      </div>
+
+      {/* Floating Real-time Notifications Container (Toaster) */}
+      <div className="fixed bottom-4 right-4 z-50 space-y-2 pointer-events-none max-w-sm w-full">
+        {toasts.map((toast) => (
+          <div 
+            key={toast.id} 
+            className="bg-slate-900/95 backdrop-blur-sm text-white border border-slate-800 rounded-2xl p-4 shadow-2xl flex items-start gap-3 animate-fade-in pointer-events-auto"
+          >
+            <div className="w-8 h-8 rounded-lg bg-indigo-500/20 flex items-center justify-center text-indigo-400 shrink-0">
+              <BellRing className="w-4.5 h-4.5 animate-bounce" />
+            </div>
+            <div className="flex-1 min-w-0 text-left pt-0.5">
+              <span className="text-[10px] font-extrabold tracking-wider uppercase text-indigo-400">Workspace Update</span>
+              <p className="text-[11px] font-semibold text-slate-100 leading-normal mt-0.5 break-words select-text">
+                {toast.message}
+              </p>
+            </div>
+            <button 
+              onClick={() => removeToast(toast.id)}
+              className="text-slate-400 hover:text-white transition-colors p-0.5"
+            >
+              <X className="w-4.5 h-4.5" />
+            </button>
+          </div>
+        ))}
       </div>
     </div>
   );
