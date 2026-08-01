@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Sparkles, MessageSquare, Plus, Link2 } from "lucide-react";
+import { Sparkles, MessageSquare, Plus, Link2, Loader2 } from "lucide-react";
 import TasksPanel from "@/components/dashboard/tasks-panel";
 import GoalsPanel from "@/components/dashboard/goals-panel";
 import ProjectsPanel from "@/components/dashboard/projects-panel";
@@ -10,32 +10,85 @@ import RemindersPanel from "@/components/dashboard/reminders-panel";
 
 export default function DashboardPage() {
   const [userName, setUserName] = useState("Hassam");
+  
+  // Dashboard datasets state
+  const [tasks, setTasks] = useState<any[]>([]);
+  const [goals, setGoals] = useState<any[]>([]);
+  const [projects, setProjects] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  // Fetch logged in user details to display dynamic greeting name
-  useEffect(() => {
-    fetch("/api/auth/me")
-      .then((res) => {
-        if (res.ok) {
-          return res.json().then((data) => {
-            if (data.user?.name) {
-              const firstName = data.user.name.trim().split(/\s+/)[0];
-              if (firstName) {
-                setUserName(firstName);
-              }
-            }
-          });
-        } else {
-          console.warn("Could not retrieve user details for greeting.");
+  // Fetch logged in user profile details and dashboard datasets
+  const fetchDashboardData = async () => {
+    try {
+      // 1. Fetch User details for greeting
+      const userRes = await fetch("/api/auth/me");
+      if (userRes.ok) {
+        const userData = await userRes.json();
+        if (userData.user?.name) {
+          const firstName = userData.user.name.trim().split(/\s+/)[0];
+          if (firstName) setUserName(firstName);
         }
-      })
-      .catch(() => {
-        // Fallback to default Hassam
-      });
+      }
+
+      // 2. Fetch Dashboard Datasets
+      const dbRes = await fetch("/api/dashboard");
+      if (dbRes.ok) {
+        const dbData = await dbRes.json();
+        setTasks(dbData.tasks);
+        setGoals(dbData.goals);
+        setProjects(dbData.projects);
+      }
+    } catch (err) {
+      console.error("Failed to load dashboard data:", err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchDashboardData();
   }, []);
 
+  // Handle Task status update on the dashboard (Real PATCH API integration)
+  const handleTaskStatusChange = async (taskId: string, newStatus: string) => {
+    try {
+      // Optimistically update client state
+      setTasks(prev => prev.map((t: any) => t.id === taskId ? { ...t, status: newStatus } : t));
+
+      const res = await fetch(`/api/tasks/${taskId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: newStatus }),
+      });
+
+      if (!res.ok) throw new Error();
+      
+      // Re-fetch dashboard values to keep goals calculations synchronized
+      const dbRes = await fetch("/api/dashboard");
+      if (dbRes.ok) {
+        const dbData = await dbRes.json();
+        setTasks(dbData.tasks);
+        setGoals(dbData.goals);
+        setProjects(dbData.projects);
+      }
+    } catch (error) {
+      console.error("Failed to update task status:", error);
+      fetchDashboardData(); // Revert on fail
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="flex flex-col items-center justify-center py-24 space-y-4">
+        <Loader2 className="w-10 h-10 animate-spin text-indigo-650" />
+        <p className="text-slate-400 font-bold text-xs uppercase tracking-wider">Compiling workspace datasets...</p>
+      </div>
+    );
+  }
+
   return (
-    <div className="space-y-8 animate-fade-in">
-      {/* Dynamic/Mock Greeting Header */}
+    <div className="space-y-8 animate-fade-in select-none">
+      {/* Greeting Header */}
       <div className="space-y-2">
         <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide">
           Monday, July 7
@@ -76,13 +129,13 @@ export default function DashboardPage() {
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
         {/* Left column (60% width) - Tasks & Goals */}
         <div className="lg:col-span-7 space-y-8 flex flex-col">
-          <TasksPanel />
-          <GoalsPanel />
+          <TasksPanel tasks={tasks} onStatusChange={handleTaskStatusChange} />
+          <GoalsPanel goals={goals} />
         </div>
 
         {/* Right column (40% width) - Projects, Calendar, Reminders */}
         <div className="lg:col-span-5 space-y-8 flex flex-col">
-          <ProjectsPanel />
+          <ProjectsPanel projects={projects} />
           <CalendarPanel />
           <RemindersPanel />
         </div>
