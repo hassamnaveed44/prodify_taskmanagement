@@ -9,8 +9,224 @@ datasource db {
   provider = "postgresql"
 }
 
-model Ping {
+// User Entity
+model User {
+  id           String            @id @default(uuid())
+  email        String            @unique
+  password     String            // Hashed with bcryptjs
+  name         String
+  createdAt    DateTime          @default(now())
+  updatedAt    DateTime          @updatedAt
+  
+  // Relations
+  ownedWorkspaces   Workspace[]   @relation("WorkspaceOwner")
+  memberships       WorkspaceMember[]
+  refreshTokens     RefreshToken[]
+  chatSessions      ChatSession[]
+}
+
+// Session Refresh Tokens for Rotation
+model RefreshToken {
   id        String   @id @default(uuid())
+  token     String   @unique
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+  isRevoked Boolean  @default(false)
   createdAt DateTime @default(now())
-  message   String
+
+  @@index([token])
+}
+
+// Workspace Entity
+model Workspace {
+  id        String            @id @default(uuid())
+  name      String
+  slug      String            @unique
+  ownerId   String
+  owner     User              @relation("WorkspaceOwner", fields: [ownerId], references: [id])
+  createdAt DateTime          @default(now())
+  updatedAt DateTime          @updatedAt
+
+  // Relations
+  members   WorkspaceMember[]
+  projects  Project[]
+  teams     Team[]
+}
+
+enum WorkspaceRole {
+  OWNER
+  ADMIN
+  MEMBER
+}
+
+// Workspace Member Link Table (Includes roles)
+model WorkspaceMember {
+  id          String         @id @default(uuid())
+  workspaceId String
+  workspace   Workspace      @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  userId      String
+  user        User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role        WorkspaceRole  @default(MEMBER)
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+
+  // Relations
+  projectMemberships ProjectMember[]
+  assignedTasks      Task[]            @relation("TaskAssignee")
+  taskComments       TaskComment[]
+  teamMemberships    TeamMember[]
+  messages           Message[]
+
+  @@unique([workspaceId, userId]) // A user can only join a workspace once
+}
+
+// Project Entity
+model Project {
+  id          String          @id @default(uuid())
+  name        String
+  slug        String
+  workspaceId String
+  workspace   Workspace       @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+
+  // Relations
+  members     ProjectMember[]
+  tasks       Task[]
+  goals       Goal[]
+
+  @@unique([workspaceId, slug]) // Project slugs must be unique within a workspace
+}
+
+// Project Member Link Table
+model ProjectMember {
+  id        String          @id @default(uuid())
+  projectId String
+  project   Project         @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  memberId  String
+  member    WorkspaceMember @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  createdAt DateTime        @default(now())
+
+  @@unique([projectId, memberId]) // Prevent duplicate project members
+}
+
+enum TaskStatus {
+  TODO
+  IN_PROGRESS
+  UPCOMING
+  COMPLETED
+}
+
+enum TaskPriority {
+  LOW
+  MEDIUM
+  HIGH
+}
+
+// Task Entity
+model Task {
+  id          String          @id @default(uuid())
+  name        String
+  description String?
+  status      TaskStatus      @default(TODO)
+  priority    TaskPriority    @default(MEDIUM)
+  dueDate     DateTime?
+  projectId   String
+  project     Project         @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  assigneeId  String?
+  assignee    WorkspaceMember? @relation("TaskAssignee", fields: [assigneeId], references: [id], onDelete: SetNull)
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+
+  // Relations
+  comments    TaskComment[]
+}
+
+// Task Comment Entity
+model TaskComment {
+  id        String          @id @default(uuid())
+  taskId    String
+  task      Task            @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  authorId  String
+  author    WorkspaceMember @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  content   String
+  createdAt DateTime        @default(now())
+  updatedAt DateTime        @updatedAt
+}
+
+// Goals tracks progress of Projects
+model Goal {
+  id          String   @id @default(uuid())
+  title       String
+  percentage  Int      @default(0)
+  projectId   String
+  project     Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+// Team Channels for Group Chat
+model Team {
+  id          String      @id @default(uuid())
+  name        String
+  workspaceId String
+  workspace   Workspace   @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  // Relations
+  members     TeamMember[]
+  messages    Message[]
+}
+
+// Team Member Link Table
+model TeamMember {
+  id        String          @id @default(uuid())
+  teamId    String
+  team      Team            @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  memberId  String
+  member    WorkspaceMember @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  createdAt DateTime        @default(now())
+
+  @@unique([teamId, memberId]) // Prevent duplicate team memberships
+}
+
+// Chat Messages within Team Channels
+model Message {
+  id        String          @id @default(uuid())
+  teamId    String
+  team      Team            @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  authorId  String
+  author    WorkspaceMember @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  content   String
+  createdAt DateTime        @default(now())
+}
+
+// AI Chatbot Conversation History Sessions
+model ChatSession {
+  id        String        @id @default(uuid())
+  title     String
+  userId    String
+  user      User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+
+  // Relations
+  messages  ChatMessage[]
+}
+
+enum ChatSender {
+  USER
+  AI
+}
+
+// AI Chatbot Messages
+model ChatMessage {
+  id        String      @id @default(uuid())
+  sessionId String
+  session   ChatSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  sender    ChatSender
+  content   String
+  createdAt DateTime    @default(now())
 }
