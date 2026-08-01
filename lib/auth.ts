@@ -16,6 +16,7 @@ const getRefreshSecret = () => {
 export interface JWTPayload {
   userId: string;
   email: string;
+  name: string;
   workspaceId: string;
   role: string;
 }

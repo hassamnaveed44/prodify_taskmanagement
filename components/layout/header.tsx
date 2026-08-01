@@ -5,11 +5,27 @@ import { Search, Bell, HelpCircle, Menu, LogOut, ChevronDown } from "lucide-reac
 import { useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
 
+interface UserProfile {
+  id: string;
+  email: string;
+  name: string;
+  initials: string;
+}
+
+interface WorkspaceProfile {
+  id: string;
+  name: string;
+  slug: string;
+  role: string;
+}
+
 interface HeaderProps {
+  user: UserProfile | null;
+  workspace: WorkspaceProfile | null;
   onMenuClick?: () => void;
 }
 
-export default function Header({ onMenuClick }: HeaderProps) {
+export default function Header({ user, workspace, onMenuClick }: HeaderProps) {
   const router = useRouter();
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [loggingOut, setLoggingOut] = useState(false);
@@ -28,8 +44,13 @@ export default function Header({ onMenuClick }: HeaderProps) {
     }
   };
 
+  // Extract first name (e.g. "Hassam Naveed" -> "Hassam")
+  const getFirstName = (fullName: string) => {
+    return fullName.trim().split(/\s+/)[0] || "Hassam";
+  };
+
   return (
-    <header className="h-16 border-b border-slate-100 bg-white flex items-center justify-between px-6 sticky top-0 z-40 select-none">
+    <header className="h-16 border-b border-slate-100 bg-white flex items-center justify-between px-6 sticky top-0 z-40 select-none shrink-0">
       
       {/* Search & Menu Trigger */}
       <div className="flex-1 max-w-lg flex items-center gap-3">
@@ -47,7 +68,7 @@ export default function Header({ onMenuClick }: HeaderProps) {
           <input
             type="text"
             placeholder="Search anything..."
-            className="w-full bg-slate-50/50 border border-slate-100 rounded-full py-2 pl-11 pr-4 text-sm text-slate-650 focus:outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 transition-all placeholder:text-slate-400"
+            className="w-full bg-slate-50/50 border border-slate-100 rounded-full py-2 pl-11 pr-4 text-sm text-slate-655 focus:outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 transition-all placeholder:text-slate-400"
           />
         </div>
       </div>
@@ -72,14 +93,18 @@ export default function Header({ onMenuClick }: HeaderProps) {
             className="flex items-center gap-2.5 pl-4 border-l border-slate-100 cursor-pointer hover:opacity-85 transition-opacity py-1"
           >
             <div className="w-9 h-9 rounded-full bg-indigo-600 flex items-center justify-center text-white text-sm font-semibold select-none shadow-sm shrink-0">
-              HN
+              {user?.initials || "HN"}
             </div>
             <div className="hidden sm:block text-left">
               <div className="flex items-center gap-1">
-                <h4 className="font-semibold text-slate-800 text-sm leading-none">Hassam</h4>
+                <h4 className="font-semibold text-slate-800 text-sm leading-none truncate max-w-[80px]">
+                  {user ? getFirstName(user.name) : "Hassam"}
+                </h4>
                 <ChevronDown className="w-3.5 h-3.5 text-slate-400" />
               </div>
-              <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider mt-0.5">Personal workspace</p>
+              <p className="text-[9px] text-slate-405 font-bold uppercase tracking-wider mt-1 truncate max-w-[120px]">
+                {workspace?.name || "Personal workspace"}
+              </p>
             </div>
           </div>
 
@@ -90,11 +115,11 @@ export default function Header({ onMenuClick }: HeaderProps) {
                 className="fixed inset-0 z-30" 
                 onClick={() => setDropdownOpen(false)}
               />
-              <div className="absolute right-0 mt-2.5 w-44 bg-white border border-slate-100 rounded-2xl p-2 shadow-xl z-45 animate-fade-in">
+              <div className="absolute right-0 mt-2.5 w-44 bg-white border border-slate-105 rounded-2xl p-2 shadow-xl z-45 animate-fade-in">
                 <button
                   onClick={handleLogout}
                   disabled={loggingOut}
-                  className="w-full text-left px-3.5 py-2.5 hover:bg-red-50 text-red-600 hover:text-red-750 font-bold text-xs rounded-xl flex items-center gap-2 transition-colors cursor-pointer disabled:opacity-50"
+                  className="w-full text-left px-3.5 py-2.5 hover:bg-red-50 text-red-650 hover:text-red-750 font-bold text-xs rounded-xl flex items-center gap-2 transition-colors cursor-pointer disabled:opacity-50"
                 >
                   <LogOut className="w-4 h-4 shrink-0" />
                   <span>{loggingOut ? "Logging out..." : "Log Out"}</span>

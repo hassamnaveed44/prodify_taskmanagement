@@ -82,6 +82,7 @@ export async function POST(req: NextRequest) {
     const accessToken = await signAccessToken({
       userId: user.id,
       email: user.email,
+      name: user.name,
       workspaceId: workspace.id,
       role: member.role,
     });
