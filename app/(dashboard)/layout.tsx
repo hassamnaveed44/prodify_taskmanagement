@@ -13,7 +13,7 @@ export default function DashboardLayout({
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
   return (
-    <div className="flex h-screen overflow-hidden bg-[#f6f8fb]">
+    <div className="flex h-full w-full overflow-hidden bg-[#f6f8fb]">
       
       {/* 1. Desktop Left Sidebar (Always visible on large screens) */}
       <div className="hidden md:flex md:w-64 md:flex-col md:h-full shrink-0">

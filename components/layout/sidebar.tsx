@@ -12,6 +12,7 @@ import {
   Settings, 
   Plus,
   ChevronRight,
+  ChevronDown,
   X
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -47,12 +48,12 @@ export default function Sidebar({ onClose }: SidebarProps) {
   };
 
   return (
-    <aside className="w-64 border-r border-slate-100 bg-white flex flex-col h-screen p-6 justify-between select-none">
+    <aside className="w-64 border-r border-slate-100 bg-white flex flex-col h-full p-6 justify-between select-none relative">
       {/* Mobile Close Button */}
       {onClose && (
         <button 
           onClick={onClose}
-          className="md:hidden absolute top-6 right-4 text-slate-400 hover:text-slate-650 p-1 rounded-lg hover:bg-slate-50 transition-colors"
+          className="md:hidden absolute top-6 right-4 text-slate-400 hover:text-slate-650 p-1 rounded-lg hover:bg-slate-50 transition-colors z-50"
         >
           <X className="w-5 h-5" />
         </button>
@@ -60,18 +61,25 @@ export default function Sidebar({ onClose }: SidebarProps) {
 
       {/* Top Section */}
       <div className="space-y-6">
-        {/* Logo Section */}
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-2xl bg-indigo-600 flex items-center justify-center text-white font-bold text-xl shadow-sm shadow-indigo-150">
-            P
+        
+        {/* User Profile Card (Matches Top of Sidebar in target UI) */}
+        <div className="flex items-center justify-between p-2 hover:bg-slate-50 rounded-2xl cursor-pointer transition-colors border border-slate-50 shadow-xs">
+          <div className="flex items-center gap-3">
+            {/* Avatar with initials or face shape */}
+            <div className="w-10 h-10 rounded-full bg-indigo-600 text-white font-extrabold text-xs flex items-center justify-center shadow-sm shrink-0 relative">
+              HN
+              {/* Online status green dot */}
+              <span className="absolute bottom-0 right-0 w-3 h-3 bg-emerald-500 rounded-full ring-2 ring-white"></span>
+            </div>
+            <div>
+              <h4 className="font-extrabold text-slate-800 text-xs leading-tight tracking-tight">Hassam Naveed</h4>
+              <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider mt-0.5">Online</p>
+            </div>
           </div>
-          <div>
-            <h1 className="font-extrabold text-slate-800 text-lg leading-tight tracking-tight">Prodify</h1>
-            <p className="text-[10px] text-slate-400 font-bold tracking-widest uppercase mt-0.5">AI WORKSPACE</p>
-          </div>
+          <ChevronDown className="w-4 h-4 text-slate-400 shrink-0" />
         </div>
 
-        {/* Main Navigation (No inner scrollbar) */}
+        {/* Main Navigation */}
         <nav className="space-y-1">
           {navItems.map((item) => {
             const isActive = pathname === item.href;
@@ -89,7 +97,7 @@ export default function Sidebar({ onClose }: SidebarProps) {
                     : "text-slate-550 hover:bg-slate-50/60 hover:text-slate-800"
                 )}
               >
-                <Icon className={cn("w-5 h-5 shrink-0", isActive ? "text-indigo-600" : "text-slate-450")} />
+                <Icon className={cn("w-5 h-5 shrink-0", isActive ? "text-indigo-600" : "text-slate-455")} />
                 <span>{item.name}</span>
                 {isActive && <ChevronRight className="w-4 h-4 ml-auto text-indigo-600 shrink-0" />}
               </Link>
@@ -100,7 +108,7 @@ export default function Sidebar({ onClose }: SidebarProps) {
           <div className="pt-6">
             <div className="px-4 flex items-center justify-between text-[11px] font-bold text-slate-400 tracking-wider uppercase mb-2">
               <span>My Projects</span>
-              <button className="text-indigo-650 hover:text-indigo-800 transition-colors p-0.5 rounded flex items-center gap-0.5 text-[10px] lowercase font-bold normal-case">
+              <button className="text-indigo-655 hover:text-indigo-800 transition-colors p-0.5 rounded flex items-center gap-0.5 text-[10px] lowercase font-bold normal-case">
                 <Plus className="w-3.5 h-3.5" /> Add
               </button>
             </div>
@@ -132,7 +140,7 @@ export default function Sidebar({ onClose }: SidebarProps) {
         </nav>
       </div>
 
-      {/* Bottom Section - Pinned to bottom, no overflow */}
+      {/* Bottom Section */}
       <div className="pt-6 space-y-4">
         {/* Settings */}
         <Link
@@ -157,7 +165,7 @@ export default function Sidebar({ onClose }: SidebarProps) {
           <p className="text-[11px] text-white/80 leading-relaxed mb-3 z-10 relative">
             New members will gain access to public Spaces, Docs and Dashboards.
           </p>
-          <button className="w-full bg-white text-indigo-600 font-bold text-xs py-2 px-4 rounded-xl shadow hover:bg-slate-50 transition-colors z-10 relative cursor-pointer">
+          <button className="w-full bg-white text-indigo-600 font-bold text-xs py-2 px-4 rounded-xl shadow hover:bg-slate-55 transition-colors z-10 relative cursor-pointer">
             Invite people
           </button>
         </div>

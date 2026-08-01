@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import BrowserFrame from "@/components/layout/browser-frame";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -22,8 +23,11 @@ export default function RootLayout({
           rel="stylesheet" 
         />
       </head>
-      <body className="min-h-full bg-[#f6f8fb] text-slate-800 font-sans">
-        {children}
+      <body className="min-h-full font-sans antialiased text-slate-800 bg-[#f6f8fb]">
+        {/* Browser wrapper to replicate target UI presentation exactly */}
+        <BrowserFrame>
+          {children}
+        </BrowserFrame>
       </body>
     </html>
   );
