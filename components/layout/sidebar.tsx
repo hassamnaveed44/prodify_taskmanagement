@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { 
@@ -58,6 +59,10 @@ interface SidebarProps {
 
 export default function Sidebar({ user, workspace, projects, onAddProject, onClose }: SidebarProps) {
   const pathname = usePathname();
+  
+  // Custom Create Project Modal State
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [newProjectName, setNewProjectName] = useState("");
 
   const handleLinkClick = () => {
     if (onClose) {
@@ -65,15 +70,16 @@ export default function Sidebar({ user, workspace, projects, onAddProject, onClo
     }
   };
 
-  const handleCreateProjectClick = () => {
-    const name = window.prompt("Enter new project name:");
-    if (name && name.trim() && onAddProject) {
-      onAddProject(name.trim());
+  const handleCreateConfirm = () => {
+    if (newProjectName.trim() && onAddProject) {
+      onAddProject(newProjectName.trim());
+      setNewProjectName("");
+      setIsModalOpen(false);
     }
   };
 
   return (
-    <aside className="w-64 border-r border-slate-100 bg-white flex flex-col h-full py-4 px-5 justify-between select-none overflow-hidden shrink-0">
+    <aside className="w-64 border-r border-slate-100 bg-white flex flex-col h-full py-4 px-5 justify-between select-none overflow-hidden shrink-0 relative">
       {/* Mobile Close Button */}
       {onClose && (
         <button 
@@ -87,7 +93,7 @@ export default function Sidebar({ user, workspace, projects, onAddProject, onClo
       {/* Top and middle sections container */}
       <div className="flex flex-col gap-3">
         {/* 1. User Profile Card */}
-        <div className="flex items-center justify-between p-2 hover:bg-slate-50 rounded-2xl cursor-pointer transition-colors border border-slate-105/50 shadow-xs bg-slate-50/20">
+        <div className="flex items-center justify-between p-2 hover:bg-slate-50 rounded-2xl cursor-pointer transition-colors border border-slate-100/50 shadow-xs bg-slate-50/20">
           <div className="flex items-center gap-2.5">
             <div className="w-9 h-9 rounded-full bg-indigo-600 text-white font-extrabold text-xs flex items-center justify-center shadow-sm shrink-0 relative">
               {user?.initials || "HN"}
@@ -137,7 +143,7 @@ export default function Sidebar({ user, workspace, projects, onAddProject, onClo
           <div className="px-3 flex items-center justify-between text-[11px] font-bold text-slate-400 tracking-wider mb-1 select-none">
             <span>My Projects</span>
             <button 
-              onClick={handleCreateProjectClick}
+              onClick={() => setIsModalOpen(true)}
               className="text-indigo-600 hover:text-indigo-805 transition-colors p-0.5 rounded flex items-center gap-0.5 text-[10px] font-bold normal-case select-none cursor-pointer"
             >
               <Plus className="w-3 h-3" /> Add
@@ -146,7 +152,7 @@ export default function Sidebar({ user, workspace, projects, onAddProject, onClo
 
           <div className="space-y-0.5 max-h-[160px] overflow-y-auto pr-1">
             {projects.length === 0 ? (
-              <p className="text-slate-350 text-[10px] italic py-1 pl-3 text-left">No projects created yet.</p>
+              <p className="text-slate-355 text-[10px] italic py-1 pl-3 text-left">No projects created yet.</p>
             ) : (
               projects.map((project) => {
                 const projectPath = `/projects/${project.slug}`;
@@ -203,6 +209,43 @@ export default function Sidebar({ user, workspace, projects, onAddProject, onClo
           </button>
         </div>
       </div>
+
+      {/* Custom Create Project Modal Popup */}
+      {isModalOpen && (
+        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center z-50 p-4">
+          <div className="bg-white border border-slate-100 rounded-3xl p-6 shadow-2xl max-w-sm w-full space-y-4 animate-fade-in">
+            <h3 className="font-extrabold text-slate-800 text-sm tracking-tight uppercase text-left">Create New Project</h3>
+            <div className="space-y-1.5 text-left">
+              <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block px-1">Project Name</label>
+              <input 
+                type="text" 
+                value={newProjectName}
+                onChange={(e) => setNewProjectName(e.target.value)}
+                placeholder="e.g. Mobile Application"
+                className="w-full text-xs font-semibold text-slate-700 bg-slate-50 border border-slate-100 rounded-2xl py-3 px-4 outline-none focus:bg-white focus:border-indigo-500 focus:ring-1 focus:ring-indigo-100 transition-all"
+                autoFocus
+              />
+            </div>
+            <div className="flex items-center justify-end gap-2.5 pt-2">
+              <button 
+                onClick={() => {
+                  setIsModalOpen(false);
+                  setNewProjectName("");
+                }}
+                className="text-xs font-bold text-slate-400 hover:text-slate-700 px-4 py-2 cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button 
+                onClick={handleCreateConfirm}
+                className="bg-indigo-600 text-white text-xs font-extrabold px-4.5 py-2.5 rounded-xl hover:bg-indigo-700 transition-colors shadow-sm cursor-pointer"
+              >
+                Create Project
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </aside>
   );
 }
