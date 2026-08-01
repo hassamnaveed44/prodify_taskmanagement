@@ -19,6 +19,13 @@ interface WorkspaceProfile {
   role: string;
 }
 
+interface ProjectProfile {
+  id: string;
+  name: string;
+  slug: string;
+  color: string;
+}
+
 export default function DashboardLayout({
   children,
 }: Readonly<{
@@ -27,31 +34,59 @@ export default function DashboardLayout({
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [user, setUser] = useState<UserProfile | null>(null);
   const [workspace, setWorkspace] = useState<WorkspaceProfile | null>(null);
+  const [projects, setProjects] = useState<ProjectProfile[]>([]);
 
   // Fetch logged-in user profile details on load
-  useEffect(() => {
+  const fetchProfileData = () => {
     fetch("/api/auth/me")
       .then((res) => {
-        if (res.ok) {
-          return res.json().then((data) => {
-            setUser(data.user);
-            setWorkspace(data.workspace);
-          });
-        } else {
-          console.warn("Session profile not available (user is not logged in).");
-        }
+        if (res.ok) return res.json();
+        throw new Error("Failed to retrieve session profile.");
+      })
+      .then((data) => {
+        setUser(data.user);
+        setWorkspace(data.workspace);
+        setProjects(data.projects || []);
       })
       .catch((err) => {
-        console.error("Network error while loading user profile:", err);
+        console.error("Error loading user profile in layout:", err);
       });
+  };
+
+  useEffect(() => {
+    fetchProfileData();
   }, []);
+
+  // Handle Project Creation from Sidebar (Real POST API integration)
+  const handleCreateProject = async (projectName: string) => {
+    try {
+      const res = await fetch("/api/projects", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: projectName }),
+      });
+      if (res.ok) {
+        fetchProfileData(); // Reload projects lists dynamically
+      } else {
+        const errData = await res.json();
+        alert(errData.error || "Failed to create project.");
+      }
+    } catch (err) {
+      console.error("Project creation failed:", err);
+    }
+  };
 
   return (
     <div className="flex h-full w-full overflow-hidden bg-[#f6f8fb]">
       
-      {/* 1. Desktop Left Sidebar (Always visible on large screens) */}
+      {/* 1. Desktop Left Sidebar */}
       <div className="hidden md:flex md:w-64 md:flex-col md:h-full shrink-0">
-        <Sidebar user={user} workspace={workspace} />
+        <Sidebar 
+          user={user} 
+          workspace={workspace} 
+          projects={projects}
+          onAddProject={handleCreateProject}
+        />
       </div>
 
       {/* 2. Mobile Sidebar Overlay & Drawer */}
@@ -73,6 +108,8 @@ export default function DashboardLayout({
         <Sidebar 
           user={user} 
           workspace={workspace} 
+          projects={projects}
+          onAddProject={handleCreateProject}
           onClose={() => setIsSidebarOpen(false)} 
         />
       </div>

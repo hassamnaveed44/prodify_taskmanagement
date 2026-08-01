@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { verifyAccessToken } from "@/lib/auth";
 import db from "@/lib/db";
 
-// Helper to extract initials from user name (e.g. "Hassam Naveed" -> "HN")
+// Helper to extract initials from user name
 function getInitials(name: string): string {
   const parts = name.trim().split(/\s+/);
   if (parts.length === 0 || !parts[0]) return "U";
@@ -29,10 +29,30 @@ export async function GET(req: NextRequest) {
       );
     }
 
-    // Fetch the workspace details to return its actual name/slug
+    // Fetch the workspace details
     const workspace = await db.workspace.findUnique({
       where: { id: payload.workspaceId },
     });
+
+    // Fetch projects in the active workspace
+    const dbProjects = await db.project.findMany({
+      where: { workspaceId: payload.workspaceId },
+      orderBy: { createdAt: "asc" },
+    });
+
+    // Assign consistent color values
+    const sidebarProjects = dbProjects.map((p) => ({
+      id: p.id,
+      name: p.name,
+      slug: p.slug,
+      color: p.slug === "product-launch"
+        ? "bg-indigo-600"
+        : p.slug === "team-brainstorm"
+          ? "bg-indigo-650"
+          : p.slug === "branding-launch"
+            ? "bg-teal-500"
+            : "bg-purple-500", // Fallback color
+    }));
 
     return NextResponse.json({
       status: "success",
@@ -48,6 +68,7 @@ export async function GET(req: NextRequest) {
         slug: workspace?.slug || "personal-workspace",
         role: payload.role,
       },
+      projects: sidebarProjects,
     });
   } catch (error) {
     console.error("GET /api/auth/me failed:", error);

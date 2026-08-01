@@ -77,6 +77,25 @@ export default function DashboardPage() {
     }
   };
 
+  // Handle Project Creation from Dashboard Grid (Real POST API integration)
+  const handleCreateProject = async (name: string) => {
+    try {
+      const res = await fetch("/api/projects", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name }),
+      });
+      if (res.ok) {
+        window.location.reload(); // Force full reload to update sidebar links and dashboard grid in one sync
+      } else {
+        const errData = await res.json();
+        alert(errData.error || "Failed to create project.");
+      }
+    } catch (error) {
+      console.error("Failed to create project:", error);
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex flex-col items-center justify-center py-24 space-y-4">
@@ -135,7 +154,7 @@ export default function DashboardPage() {
 
         {/* Right column (40% width) - Projects, Calendar, Reminders */}
         <div className="lg:col-span-5 space-y-8 flex flex-col">
-          <ProjectsPanel projects={projects} />
+          <ProjectsPanel projects={projects} onCreateProject={handleCreateProject} />
           <CalendarPanel />
           <RemindersPanel />
         </div>

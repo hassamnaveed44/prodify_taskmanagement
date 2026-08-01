@@ -27,13 +27,6 @@ const navItems = [
   { name: "Reports & Analytics", href: "/reports", icon: BarChart2 },
 ];
 
-// Mock Projects data matching design
-const projects = [
-  { name: "Product launch", color: "bg-indigo-600" },
-  { name: "Team brainstorm", color: "bg-indigo-650" },
-  { name: "Branding launch", color: "bg-teal-500" },
-];
-
 interface UserProfile {
   id: string;
   email: string;
@@ -48,18 +41,34 @@ interface WorkspaceProfile {
   role: string;
 }
 
+interface ProjectProfile {
+  id: string;
+  name: string;
+  slug: string;
+  color: string;
+}
+
 interface SidebarProps {
   user: UserProfile | null;
   workspace: WorkspaceProfile | null;
+  projects: ProjectProfile[];
+  onAddProject?: (projectName: string) => void;
   onClose?: () => void;
 }
 
-export default function Sidebar({ user, workspace, onClose }: SidebarProps) {
+export default function Sidebar({ user, workspace, projects, onAddProject, onClose }: SidebarProps) {
   const pathname = usePathname();
 
   const handleLinkClick = () => {
     if (onClose) {
       onClose();
+    }
+  };
+
+  const handleCreateProjectClick = () => {
+    const name = window.prompt("Enter new project name:");
+    if (name && name.trim() && onAddProject) {
+      onAddProject(name.trim());
     }
   };
 
@@ -77,8 +86,8 @@ export default function Sidebar({ user, workspace, onClose }: SidebarProps) {
 
       {/* Top and middle sections container */}
       <div className="flex flex-col gap-3">
-        {/* 1. User Profile Card (Dynamic user name and initials) */}
-        <div className="flex items-center justify-between p-2 hover:bg-slate-50 rounded-2xl cursor-pointer transition-colors border border-slate-100/50 shadow-xs bg-slate-50/20">
+        {/* 1. User Profile Card */}
+        <div className="flex items-center justify-between p-2 hover:bg-slate-50 rounded-2xl cursor-pointer transition-colors border border-slate-105/50 shadow-xs bg-slate-50/20">
           <div className="flex items-center gap-2.5">
             <div className="w-9 h-9 rounded-full bg-indigo-600 text-white font-extrabold text-xs flex items-center justify-center shadow-sm shrink-0 relative">
               {user?.initials || "HN"}
@@ -109,7 +118,7 @@ export default function Sidebar({ user, workspace, onClose }: SidebarProps) {
                   "flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-bold transition-all duration-150 select-none",
                   isActive 
                     ? "bg-indigo-50/70 text-indigo-600" 
-                    : "text-slate-555 hover:bg-slate-50/60 hover:text-slate-800"
+                    : "text-slate-555 hover:bg-slate-50/60 hover:text-slate-850"
                 )}
               >
                 <Icon className={cn("w-4.5 h-4.5 shrink-0", isActive ? "text-indigo-600" : "text-slate-455")} />
@@ -127,26 +136,33 @@ export default function Sidebar({ user, workspace, onClose }: SidebarProps) {
         <div className="space-y-1.5">
           <div className="px-3 flex items-center justify-between text-[11px] font-bold text-slate-400 tracking-wider mb-1 select-none">
             <span>My Projects</span>
-            <button className="text-indigo-650 hover:text-indigo-855 transition-colors p-0.5 rounded flex items-center gap-0.5 text-[10px] font-bold normal-case select-none">
+            <button 
+              onClick={handleCreateProjectClick}
+              className="text-indigo-600 hover:text-indigo-805 transition-colors p-0.5 rounded flex items-center gap-0.5 text-[10px] font-bold normal-case select-none cursor-pointer"
+            >
               <Plus className="w-3 h-3" /> Add
             </button>
           </div>
 
-          <div className="space-y-0.5">
-            {projects.map((project) => {
-              const projectPath = `/projects/${project.name.toLowerCase().replace(" ", "-")}`;
-              return (
-                <Link
-                  key={project.name}
-                  href={projectPath}
-                  onClick={handleLinkClick}
-                  className="flex items-center gap-3 px-3 py-2 rounded-xl text-xs font-bold text-slate-555 hover:bg-slate-50/50 hover:text-slate-800 transition-all duration-150"
-                >
-                  <span className={cn("w-2 h-2 rounded-full shrink-0", project.color)} />
-                  <span className="truncate">{project.name}</span>
-                </Link>
-              );
-            })}
+          <div className="space-y-0.5 max-h-[160px] overflow-y-auto pr-1">
+            {projects.length === 0 ? (
+              <p className="text-slate-350 text-[10px] italic py-1 pl-3 text-left">No projects created yet.</p>
+            ) : (
+              projects.map((project) => {
+                const projectPath = `/projects/${project.slug}`;
+                return (
+                  <Link
+                    key={project.id}
+                    href={projectPath}
+                    onClick={handleLinkClick}
+                    className="flex items-center gap-3 px-3 py-2 rounded-xl text-xs font-bold text-slate-555 hover:bg-slate-50/50 hover:text-slate-800 transition-all duration-150"
+                  >
+                    <span className={cn("w-2 h-2 rounded-full shrink-0", project.color)} />
+                    <span className="truncate">{project.name}</span>
+                  </Link>
+                );
+              })
+            )}
           </div>
         </div>
 
@@ -182,7 +198,7 @@ export default function Sidebar({ user, workspace, onClose }: SidebarProps) {
           <p className="text-[9px] text-white/70 leading-normal mb-3.5 z-10 relative">
             New members will gain access to public Spaces, Docs and Dashboards.
           </p>
-          <button className="w-full bg-white text-indigo-600 font-extrabold text-[10px] py-1.5 px-3 rounded-xl shadow-xs hover:bg-slate-50 hover:scale-[1.02] active:scale-[0.98] transition-all duration-155 z-10 relative flex items-center justify-center gap-1 cursor-pointer">
+          <button className="w-full bg-white text-indigo-600 font-extrabold text-[10px] py-1.5 px-3 rounded-xl shadow-xs hover:bg-slate-50 hover:scale-[1.02] active:scale-[0.98] transition-all duration-150 z-10 relative flex items-center justify-center gap-1 cursor-pointer">
             <Plus className="w-3 h-3 text-indigo-600" /> Invite people
           </button>
         </div>

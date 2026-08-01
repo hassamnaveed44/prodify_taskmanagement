@@ -15,9 +15,17 @@ interface Project {
 
 interface ProjectsPanelProps {
   projects: Project[];
+  onCreateProject?: (name: string) => void;
 }
 
-export default function ProjectsPanel({ projects }: ProjectsPanelProps) {
+export default function ProjectsPanel({ projects, onCreateProject }: ProjectsPanelProps) {
+  const handleCreateClick = () => {
+    const name = window.prompt("Enter new project name:");
+    if (name && name.trim() && onCreateProject) {
+      onCreateProject(name.trim());
+    }
+  };
+
   return (
     <div className="bg-white border border-slate-100 rounded-3xl p-6 shadow-sm flex flex-col h-full select-none">
       {/* Header */}
@@ -35,9 +43,12 @@ export default function ProjectsPanel({ projects }: ProjectsPanelProps) {
 
       {/* Grid of Projects */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 flex-1">
-        {/* Create new project card */}
-        <div className="border border-dashed border-slate-200 rounded-2xl p-4 flex flex-col items-center justify-center gap-2 cursor-pointer group hover:border-indigo-400 hover:bg-slate-50/50 transition-all duration-300 min-h-[120px]">
-          <div className="w-10 h-10 rounded-full border border-slate-200 group-hover:border-indigo-400 group-hover:bg-indigo-50 flex items-center justify-center text-slate-400 group-hover:text-indigo-600 transition-all duration-350 shadow-sm">
+        {/* Create new project card (trigged via custom window prompt callback) */}
+        <div 
+          onClick={handleCreateClick}
+          className="border border-dashed border-slate-200 rounded-2xl p-4 flex flex-col items-center justify-center gap-2 cursor-pointer group hover:border-indigo-400 hover:bg-slate-50/50 transition-all duration-300 min-h-[120px]"
+        >
+          <div className="w-10 h-10 rounded-full border border-slate-200 group-hover:border-indigo-400 group-hover:bg-indigo-50 flex items-center justify-center text-slate-405 group-hover:text-indigo-600 transition-all duration-350 shadow-sm">
             <Plus className="w-5 h-5" />
           </div>
           <span className="text-xs font-semibold text-slate-450 group-hover:text-indigo-600 transition-colors">
@@ -59,7 +70,7 @@ export default function ProjectsPanel({ projects }: ProjectsPanelProps) {
 
             {/* Project Info */}
             <div className="flex-1 min-w-0">
-              <h4 className="text-sm font-semibold text-slate-800 truncate mb-0.5 hover:text-indigo-650 transition-colors">
+              <h4 className="text-sm font-semibold text-slate-800 truncate mb-0.5 hover:text-indigo-655 transition-colors">
                 {project.name}
               </h4>
               <p className="text-[11px] text-slate-400 font-medium">
