@@ -1,9 +1,23 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Sidebar from "@/components/layout/sidebar";
 import Header from "@/components/layout/header";
 import { cn } from "@/lib/utils";
+
+interface UserProfile {
+  id: string;
+  email: string;
+  name: string;
+  initials: string;
+}
+
+interface WorkspaceProfile {
+  id: string;
+  name: string;
+  slug: string;
+  role: string;
+}
 
 export default function DashboardLayout({
   children,
@@ -11,17 +25,36 @@ export default function DashboardLayout({
   children: React.ReactNode;
 }>) {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [user, setUser] = useState<UserProfile | null>(null);
+  const [workspace, setWorkspace] = useState<WorkspaceProfile | null>(null);
+
+  // Fetch logged-in user profile details on load
+  useEffect(() => {
+    fetch("/api/auth/me")
+      .then((res) => {
+        if (res.ok) {
+          return res.json().then((data) => {
+            setUser(data.user);
+            setWorkspace(data.workspace);
+          });
+        } else {
+          console.warn("Session profile not available (user is not logged in).");
+        }
+      })
+      .catch((err) => {
+        console.error("Network error while loading user profile:", err);
+      });
+  }, []);
 
   return (
     <div className="flex h-full w-full overflow-hidden bg-[#f6f8fb]">
       
       {/* 1. Desktop Left Sidebar (Always visible on large screens) */}
       <div className="hidden md:flex md:w-64 md:flex-col md:h-full shrink-0">
-        <Sidebar />
+        <Sidebar user={user} workspace={workspace} />
       </div>
 
-      {/* 2. Mobile Sidebar Overlay & Drawer Drawer */}
-      {/* Backdrop overlay */}
+      {/* 2. Mobile Sidebar Overlay & Drawer */}
       <div 
         className={cn(
           "fixed inset-0 bg-slate-900/30 backdrop-blur-xs z-50 transition-opacity duration-300 md:hidden",
@@ -37,14 +70,22 @@ export default function DashboardLayout({
           isSidebarOpen ? "translate-x-0" : "-translate-x-full"
         )}
       >
-        <Sidebar onClose={() => setIsSidebarOpen(false)} />
+        <Sidebar 
+          user={user} 
+          workspace={workspace} 
+          onClose={() => setIsSidebarOpen(false)} 
+        />
       </div>
 
       {/* 3. Main Display Panel */}
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
         
         {/* Top Header */}
-        <Header onMenuClick={() => setIsSidebarOpen(true)} />
+        <Header 
+          user={user} 
+          workspace={workspace} 
+          onMenuClick={() => setIsSidebarOpen(true)} 
+        />
 
         {/* Scrollable Workspace Pages */}
         <main className="flex-1 overflow-y-auto p-4 sm:p-6 md:p-8 relative">

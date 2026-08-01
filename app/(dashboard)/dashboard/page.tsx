@@ -1,5 +1,6 @@
 "use client";
 
+import { useState, useEffect } from "react";
 import { Sparkles, MessageSquare, Plus, Link2 } from "lucide-react";
 import TasksPanel from "@/components/dashboard/tasks-panel";
 import GoalsPanel from "@/components/dashboard/goals-panel";
@@ -8,6 +9,30 @@ import CalendarPanel from "@/components/dashboard/calendar-panel";
 import RemindersPanel from "@/components/dashboard/reminders-panel";
 
 export default function DashboardPage() {
+  const [userName, setUserName] = useState("Hassam");
+
+  // Fetch logged in user details to display dynamic greeting name
+  useEffect(() => {
+    fetch("/api/auth/me")
+      .then((res) => {
+        if (res.ok) {
+          return res.json().then((data) => {
+            if (data.user?.name) {
+              const firstName = data.user.name.trim().split(/\s+/)[0];
+              if (firstName) {
+                setUserName(firstName);
+              }
+            }
+          });
+        } else {
+          console.warn("Could not retrieve user details for greeting.");
+        }
+      })
+      .catch(() => {
+        // Fallback to default Hassam
+      });
+  }, []);
+
   return (
     <div className="space-y-8 animate-fade-in">
       {/* Dynamic/Mock Greeting Header */}
@@ -17,7 +42,7 @@ export default function DashboardPage() {
         </p>
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div>
-            <h2 className="text-3xl font-bold text-slate-800 tracking-tight">Hello, Hassam</h2>
+            <h2 className="text-3xl font-bold text-slate-800 tracking-tight">Hello, {userName}</h2>
             <div className="flex flex-wrap items-center gap-2 mt-1">
               <span className="text-xl font-medium text-[#14b8a6]">How can I help you today?</span>
               
