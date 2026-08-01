@@ -25,14 +25,20 @@ export default function InboxPage() {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [activeTeamId, setActiveTeamId] = useState<string | null>(null);
   const [currentUserMemberId, setCurrentUserMemberId] = useState<string | null>(null);
+  const [currentUserName, setCurrentUserName] = useState("Teammate");
   const [newMessage, setNewMessage] = useState("");
   const [loading, setLoading] = useState(true);
   
   // Real-time WebSocket connection state
   const [wsStatus, setWsStatus] = useState<"connecting" | "connected" | "disconnected">("connecting");
 
+  // Real-time typing indicators state
+  const [activeTypers, setActiveTypers] = useState<Record<string, string>>({});
+  const [isCurrentlyTyping, setIsCurrentlyTyping] = useState(false);
+
   const socketRef = useRef<WebSocket | null>(null);
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
+  const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   // Fetch initial chat datasets
   const fetchInboxData = async (teamId?: string) => {
@@ -45,6 +51,9 @@ export default function InboxPage() {
         setMessages(data.messages);
         setActiveTeamId(data.activeTeamId);
         setCurrentUserMemberId(data.currentUserMemberId);
+        if (data.currentUserName) {
+          setCurrentUserName(data.currentUserName);
+        }
       }
     } catch (err) {
       console.error("Failed to load chat workspace channels:", err);
@@ -62,6 +71,7 @@ export default function InboxPage() {
     if (!activeTeamId) return;
 
     setWsStatus("connecting");
+    setActiveTypers({}); // Clear typers on channel switch
 
     // Establish WebSocket Connection using appropriate secure protocol
     const wsProtocol = window.location.protocol === "https:" ? "wss:" : "ws:";
@@ -83,6 +93,20 @@ export default function InboxPage() {
             if (prev.some((m) => m.id === packet.message.id)) return prev;
             return [...prev, packet.message];
           });
+        } else if (packet.type === "typing" && packet.teamId === activeTeamId) {
+          // Handle incoming typing updates
+          if (packet.isTyping) {
+            setActiveTypers((prev) => ({
+              ...prev,
+              [packet.authorId]: packet.authorName,
+            }));
+          } else {
+            setActiveTypers((prev) => {
+              const updated = { ...prev };
+              delete updated[packet.authorId];
+              return updated;
+            });
+          }
         }
       } catch (err) {
         console.error("Failed to parse incoming WebSocket message:", err);
@@ -118,6 +142,44 @@ export default function InboxPage() {
     fetchInboxData(teamId);
   };
 
+  // Handle Input Changes & Typing Indicator Broadcasts
+  const handleInputChange = (val: string) => {
+    setNewMessage(val);
+
+    if (socketRef.current && socketRef.current.readyState === WebSocket.OPEN && currentUserMemberId && activeTeamId) {
+      // Trigger "Typing Started"
+      if (!isCurrentlyTyping) {
+        setIsCurrentlyTyping(true);
+        socketRef.current.send(
+          JSON.stringify({
+            type: "typing",
+            teamId: activeTeamId,
+            authorId: currentUserMemberId,
+            authorName: currentUserName,
+            isTyping: true,
+          })
+        );
+      }
+
+      // Debounce "Typing Stopped" (1.8s delay)
+      if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
+      typingTimeoutRef.current = setTimeout(() => {
+        setIsCurrentlyTyping(false);
+        if (socketRef.current && socketRef.current.readyState === WebSocket.OPEN) {
+          socketRef.current.send(
+            JSON.stringify({
+              type: "typing",
+              teamId: activeTeamId,
+              authorId: currentUserMemberId,
+              authorName: currentUserName,
+              isTyping: false,
+            })
+          );
+        }
+      }, 1800);
+    }
+  };
+
   // Handle send message
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -125,6 +187,21 @@ export default function InboxPage() {
 
     const contentToSend = newMessage.trim();
     setNewMessage(""); // Clear immediately for snappy UX
+
+    // Clear typing timeout and broadcast typing stopped
+    if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
+    setIsCurrentlyTyping(false);
+    if (socketRef.current && socketRef.current.readyState === WebSocket.OPEN) {
+      socketRef.current.send(
+        JSON.stringify({
+          type: "typing",
+          teamId: activeTeamId,
+          authorId: currentUserMemberId,
+          authorName: currentUserName,
+          isTyping: false,
+        })
+      );
+    }
 
     try {
       // Send message via HTTP REST endpoint first (guarantees saving to PostgreSQL)
@@ -139,7 +216,7 @@ export default function InboxPage() {
 
       if (res.ok) {
         const data = await res.json();
-        // Optimistically add to our local state if not already there
+        // Add to our local state if not already there
         setMessages((prev) => {
           if (prev.some((m) => m.id === data.message.id)) return prev;
           return [...prev, data.message];
@@ -165,6 +242,7 @@ export default function InboxPage() {
   }
 
   const activeTeamName = teams.find((t) => t.id === activeTeamId)?.name || "Group Chat";
+  const typersList = Object.values(activeTypers);
 
   return (
     <div className="bg-white border border-slate-100 rounded-3xl p-0 shadow-sm flex h-[calc(100vh-180px)] overflow-hidden animate-fade-in select-none">
@@ -222,13 +300,13 @@ export default function InboxPage() {
               {activeTeamName.split(/\s+/).map((n) => n[0]).join("").toUpperCase().substring(0, 2)}
             </div>
             <div className="text-left">
-              <h4 className="text-xs font-extrabold text-slate-850 leading-tight">{activeTeamName}</h4>
+              <h4 className="text-xs font-extrabold text-slate-855 leading-tight">{activeTeamName}</h4>
               
               {/* Dynamic WebSocket Connection Status */}
               {wsStatus === "connected" ? (
                 <p className="text-[10px] text-emerald-500 font-bold tracking-wide mt-0.5 animate-pulse">● Connected (Live)</p>
               ) : wsStatus === "connecting" ? (
-                <p className="text-[10px] text-amber-500 font-bold tracking-wide mt-0.5">● Connecting...</p>
+                <p className="text-[10px] text-amber-500 font-bold tracking-wide mt-0.5 animate-pulse">● Connecting...</p>
               ) : (
                 <p className="text-[10px] text-slate-400 font-bold tracking-wide mt-0.5">● Connected (REST Fallback)</p>
               )}
@@ -292,6 +370,19 @@ export default function InboxPage() {
               );
             })
           )}
+
+          {/* Typing Indicator Display bubble */}
+          {typersList.length > 0 && (
+            <div className="flex gap-2.5 items-center text-slate-405 text-[10px] font-bold pl-12 py-1.5 animate-pulse text-left">
+              <div className="flex gap-1 shrink-0">
+                <span className="w-1.5 h-1.5 bg-indigo-550 rounded-full animate-bounce" style={{ animationDelay: "0ms" }}></span>
+                <span className="w-1.5 h-1.5 bg-indigo-550 rounded-full animate-bounce" style={{ animationDelay: "150ms" }}></span>
+                <span className="w-1.5 h-1.5 bg-indigo-550 rounded-full animate-bounce" style={{ animationDelay: "300ms" }}></span>
+              </div>
+              <span className="italic">{typersList.join(", ")} {typersList.length === 1 ? "is" : "are"} typing...</span>
+            </div>
+          )}
+
           <div ref={messagesEndRef} />
         </div>
 
@@ -301,7 +392,7 @@ export default function InboxPage() {
             type="text"
             required
             value={newMessage}
-            onChange={(e) => setNewMessage(e.target.value)}
+            onChange={(e) => handleInputChange(e.target.value)}
             placeholder={`Message ${activeTeamName}...`}
             className="flex-1 bg-slate-55 border border-slate-100 rounded-xl px-4 py-2.5 text-xs text-slate-700 placeholder:text-slate-400 focus:outline-none focus:bg-white focus:border-indigo-500"
           />

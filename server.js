@@ -60,8 +60,6 @@ app.prepare().then(() => {
       wss.handleUpgrade(request, socket, head, (ws) => {
         wss.emit("connection", ws, request);
       });
-    } else {
-      socket.destroy();
     }
   });
 
@@ -127,6 +125,21 @@ app.prepare().then(() => {
           wss.clients.forEach((client) => {
             if (client.readyState === 1) { // OPEN
               client.send(broadcastData);
+            }
+          });
+        } else if (packet.type === "typing") {
+          // Broadcast typing event to all connected clients except the sender
+          const typingBroadcast = JSON.stringify({
+            type: "typing",
+            teamId: packet.teamId,
+            authorId: packet.authorId,
+            authorName: packet.authorName,
+            isTyping: packet.isTyping,
+          });
+
+          wss.clients.forEach((client) => {
+            if (client !== ws && client.readyState === 1) { // OPEN and not sender
+              client.send(typingBroadcast);
             }
           });
         }
