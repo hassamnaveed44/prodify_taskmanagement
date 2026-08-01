@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import bcryptjs from "bcryptjs";
 import db from "@/lib/db";
-import { signAccessToken, signRefreshToken, setAuthCookies } from "@/lib/auth";
 
 export async function POST(req: NextRequest) {
   try {
@@ -38,8 +37,7 @@ export async function POST(req: NextRequest) {
     const hashedPassword = await bcryptjs.hash(password, 10);
 
     // 4. Database Transaction to guarantee all or nothing
-    // Creates User, default Workspace, and WorkspaceMember
-    const { user, workspace, member } = await db.$transaction(async (tx) => {
+    await db.$transaction(async (tx) => {
       // Create user
       const createdUser = await tx.user.create({
         data: {
@@ -67,59 +65,21 @@ export async function POST(req: NextRequest) {
       });
 
       // Join owner workspace membership
-      const createdMember = await tx.workspaceMember.create({
+      await tx.workspaceMember.create({
         data: {
           workspaceId: createdWorkspace.id,
           userId: createdUser.id,
           role: "OWNER",
         },
       });
-
-      return { user: createdUser, workspace: createdWorkspace, member: createdMember };
     });
 
-    // 5. Generate and Sign Tokens
-    const accessToken = await signAccessToken({
-      userId: user.id,
-      email: user.email,
-      name: user.name,
-      workspaceId: workspace.id,
-      role: member.role,
-    });
-
-    const refreshTokenString = await signRefreshToken({ userId: user.id });
-
-    // 6. Save Refresh Token in Database
-    // Set expiry to 7 days
-    const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
-    await db.refreshToken.create({
-      data: {
-        token: refreshTokenString,
-        userId: user.id,
-        expiresAt,
-      },
-    });
-
-    // 7. Prepare response
-    const res = NextResponse.json({
+    // 5. Prepare success response WITHOUT auto-logging in or setting session cookies
+    return NextResponse.json({
       status: "success",
-      user: {
-        id: user.id,
-        email: user.email,
-        name: user.name,
-      },
-      workspace: {
-        id: workspace.id,
-        name: workspace.name,
-        slug: workspace.slug,
-        role: member.role,
-      },
+      message: "User registered successfully. Please proceed to login.",
     });
 
-    // 8. Set secure cookies
-    setAuthCookies(res, accessToken, refreshTokenString);
-
-    return res;
   } catch (error) {
     console.error("Registration endpoint failed:", error);
     return NextResponse.json(

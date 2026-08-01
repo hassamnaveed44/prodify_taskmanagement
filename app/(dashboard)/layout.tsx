@@ -32,15 +32,17 @@ export default function DashboardLayout({
   useEffect(() => {
     fetch("/api/auth/me")
       .then((res) => {
-        if (res.ok) return res.json();
-        throw new Error("Failed to retrieve session profile.");
-      })
-      .then((data) => {
-        setUser(data.user);
-        setWorkspace(data.workspace);
+        if (res.ok) {
+          return res.json().then((data) => {
+            setUser(data.user);
+            setWorkspace(data.workspace);
+          });
+        } else {
+          console.warn("Session profile not available (user is not logged in).");
+        }
       })
       .catch((err) => {
-        console.error("Error loading user profile in layout:", err);
+        console.error("Network error while loading user profile:", err);
       });
   }, []);
 

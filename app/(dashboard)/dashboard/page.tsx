@@ -15,15 +15,17 @@ export default function DashboardPage() {
   useEffect(() => {
     fetch("/api/auth/me")
       .then((res) => {
-        if (res.ok) return res.json();
-        throw new Error();
-      })
-      .then((data) => {
-        if (data.user?.name) {
-          const firstName = data.user.name.trim().split(/\s+/)[0];
-          if (firstName) {
-            setUserName(firstName);
-          }
+        if (res.ok) {
+          return res.json().then((data) => {
+            if (data.user?.name) {
+              const firstName = data.user.name.trim().split(/\s+/)[0];
+              if (firstName) {
+                setUserName(firstName);
+              }
+            }
+          });
+        } else {
+          console.warn("Could not retrieve user details for greeting.");
         }
       })
       .catch(() => {

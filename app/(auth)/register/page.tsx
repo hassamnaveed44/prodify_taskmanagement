@@ -31,9 +31,8 @@ export default function RegisterPage() {
       if (!response.ok) {
         setError(data.error || "Registration failed. Please try again.");
       } else {
-        // Successful registration, redirect to dashboard
-        router.refresh();
-        router.push("/dashboard");
+        // Redirect to login page with success state
+        router.push("/login?registered=true");
       }
     } catch (err) {
       console.error("Register client error:", err);

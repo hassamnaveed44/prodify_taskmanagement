@@ -44,6 +44,8 @@ function LoginForm() {
     }
   };
 
+  const isRegistered = searchParams.get("registered") === "true";
+
   return (
     <div className="space-y-4">
       {/* Title */}
@@ -51,6 +53,13 @@ function LoginForm() {
         <h3 className="text-base font-extrabold text-slate-800 tracking-tight">Welcome Back</h3>
         <p className="text-xs text-slate-400 font-semibold mt-1">Sign in to access your projects and tasks.</p>
       </div>
+
+      {/* Registration success banner */}
+      {isRegistered && !error && (
+        <div className="bg-emerald-50 border border-emerald-150 text-emerald-650 px-4 py-3 rounded-2xl text-xs font-bold leading-relaxed">
+          🎉 Account created successfully! Please sign in below.
+        </div>
+      )}
 
       {/* Error banner */}
       {error && (
