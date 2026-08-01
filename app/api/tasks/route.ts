@@ -84,7 +84,8 @@ export async function POST(req: NextRequest) {
         message: `🎉 Task "${createdTask.name}" was added to "${createdTask.project.name}" by ${author}!`,
       });
       wss.clients.forEach((client: any) => {
-        if (client.readyState === 1) { // OPEN
+        // Only send to clients who belong to the same active workspace
+        if (client.readyState === 1 && client.workspaceId === payload.workspaceId) {
           client.send(broadcastMsg);
         }
       });

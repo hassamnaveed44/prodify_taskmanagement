@@ -132,6 +132,7 @@ export async function GET(req: NextRequest) {
       status: "success",
       currentUserMemberId: membership.id,
       currentUserName: payload.name,
+      workspaceId: payload.workspaceId,
       activeTeamId: targetTeamId,
       teams: teams.map((t) => ({
         id: t.id,

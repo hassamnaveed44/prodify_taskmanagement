@@ -26,6 +26,7 @@ export default function InboxPage() {
   const [activeTeamId, setActiveTeamId] = useState<string | null>(null);
   const [currentUserMemberId, setCurrentUserMemberId] = useState<string | null>(null);
   const [currentUserName, setCurrentUserName] = useState("Teammate");
+  const [workspaceId, setWorkspaceId] = useState<string | null>(null);
   const [newMessage, setNewMessage] = useState("");
   const [loading, setLoading] = useState(true);
   
@@ -51,6 +52,7 @@ export default function InboxPage() {
         setMessages(data.messages);
         setActiveTeamId(data.activeTeamId);
         setCurrentUserMemberId(data.currentUserMemberId);
+        setWorkspaceId(data.workspaceId || null);
         if (data.currentUserName) {
           setCurrentUserName(data.currentUserName);
         }
@@ -68,19 +70,29 @@ export default function InboxPage() {
 
   // Set up WebSocket Connection
   useEffect(() => {
-    if (!activeTeamId) return;
+    if (!activeTeamId || !workspaceId || !currentUserMemberId) return;
 
     setWsStatus("connecting");
     setActiveTypers({}); // Clear typers on channel switch
 
     // Establish WebSocket Connection using appropriate secure protocol
     const wsProtocol = window.location.protocol === "https:" ? "wss:" : "ws:";
-    const wsUrl = `${wsProtocol}//${window.location.host}/api/ws`;
+    const wsUrl = `${wsProtocol}//${window.location.hostname}:3001`;
     const socket = new WebSocket(wsUrl);
 
     socket.onopen = () => {
       console.log("Connected to Real-time Chat WebSockets");
       setWsStatus("connected");
+      
+      // Register client to this specific team/workspace room scope
+      socket.send(
+        JSON.stringify({
+          type: "join",
+          teamId: activeTeamId,
+          workspaceId,
+          userId: currentUserMemberId,
+        })
+      );
     };
 
     socket.onmessage = (event) => {

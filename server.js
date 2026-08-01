@@ -3,7 +3,6 @@ const { parse } = require("url");
 const next = require("next");
 const { WebSocketServer } = require("ws");
 const { PrismaClient } = require("@prisma/client");
-const cookie = require("cookie");
 
 const dev = process.env.NODE_ENV !== "production";
 const hostname = "localhost";
@@ -24,12 +23,12 @@ function getInitials(name) {
 // Helper to get consistent background colors
 function getAuthorColor(name) {
   const colors = [
-    "bg-indigo-600",
+    "bg-indigo-650",
     "bg-orange-500",
     "bg-emerald-500",
     "bg-pink-500",
     "bg-purple-500",
-    "bg-blue-505",
+    "bg-blue-500",
   ];
   const charCodeSum = name.split("").reduce((acc, char) => acc + char.charCodeAt(0), 0);
   return colors[charCodeSum % colors.length] || "bg-slate-400";
@@ -47,50 +46,31 @@ app.prepare().then(() => {
     }
   });
 
-  // Initialize WebSocket Server
-  const wss = new WebSocketServer({ noServer: true });
+  // Initialize WebSocket Server on a separate, dedicated port (3001)
+  // This isolates WebSockets from Next.js HMR upgrades, preventing connection blocks.
+  const wss = new WebSocketServer({ port: 3001 });
+  console.log(`> ⚡ WebSocket Server listening on ws://localhost:3001`);
 
-  // Store globally so standard API endpoints can trigger real-time notifications
+  // Store globally so REST endpoints can query it
   global.wss = wss;
 
-  server.on("upgrade", (request, socket, head) => {
-    const { pathname } = parse(request.url || "", true);
-
-    if (pathname === "/api/ws") {
-      wss.handleUpgrade(request, socket, head, (ws) => {
-        wss.emit("connection", ws, request);
-      });
-    }
-  });
-
-  wss.on("connection", async (ws, request) => {
-    console.log("⚡ Client connected to WebSockets");
-
-    // Retrieve access token from cookies if present
-    const parsedCookies = cookie.parse(request.headers.cookie || "");
-    const token = parsedCookies.accessToken;
-
-    let sessionUserId = null;
-    let sessionUserName = "Teammate";
-
-    if (token) {
-      try {
-        // Base64 decode JWT payload since it's signed but readable
-        const tokenParts = token.split(".");
-        if (tokenParts[1]) {
-          const payload = JSON.parse(Buffer.from(tokenParts[1], "base64").toString("utf-8"));
-          sessionUserId = payload.userId;
-          sessionUserName = payload.name || "Teammate";
-        }
-      } catch (err) {
-        console.error("Failed to decode connection token:", err);
-      }
-    }
+  wss.on("connection", async (ws) => {
+    console.log("🔌 Client established connection to WebSockets");
 
     ws.on("message", async (message) => {
       try {
         const packet = JSON.parse(message.toString());
 
+        // Handle joining/registering the socket in a specific room/workspace
+        if (packet.type === "join") {
+          ws.userId = packet.userId;
+          ws.workspaceId = packet.workspaceId;
+          ws.teamId = packet.teamId;
+          console.log(`👤 User member [${ws.userId}] joined room [${ws.teamId}] in workspace [${ws.workspaceId}]`);
+          return;
+        }
+
+        // Handle text message broadcasts
         if (packet.type === "message" && packet.teamId && packet.authorId && packet.content) {
           // Write to Postgres using Prisma
           const createdMessage = await prisma.message.create({
@@ -121,14 +101,16 @@ app.prepare().then(() => {
             },
           });
 
-          // Broadcast to all connected clients
+          // Broadcast strictly to clients registered in this specific team room
           wss.clients.forEach((client) => {
-            if (client.readyState === 1) { // OPEN
+            if (client.readyState === 1 && client.teamId === packet.teamId) {
               client.send(broadcastData);
             }
           });
-        } else if (packet.type === "typing") {
-          // Broadcast typing event to all connected clients except the sender
+        } 
+        
+        // Handle typing status updates
+        else if (packet.type === "typing" && packet.teamId) {
           const typingBroadcast = JSON.stringify({
             type: "typing",
             teamId: packet.teamId,
@@ -137,8 +119,9 @@ app.prepare().then(() => {
             isTyping: packet.isTyping,
           });
 
+          // Broadcast only to other clients viewing the same team room
           wss.clients.forEach((client) => {
-            if (client !== ws && client.readyState === 1) { // OPEN and not sender
+            if (client !== ws && client.readyState === 1 && client.teamId === packet.teamId) {
               client.send(typingBroadcast);
             }
           });

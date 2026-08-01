@@ -82,7 +82,8 @@ export async function PATCH(req: NextRequest, { params }: RouteParams) {
       });
 
       wss.clients.forEach((client: any) => {
-        if (client.readyState === 1) { // OPEN
+        // Only send to clients who belong to the same active workspace
+        if (client.readyState === 1 && client.workspaceId === payload.workspaceId) {
           client.send(broadcastMsg);
         }
       });

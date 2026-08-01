@@ -68,11 +68,22 @@ export default function DashboardLayout({
 
   // Listen to background WebSocket notifications for live updates
   useEffect(() => {
-    if (!user) return;
+    if (!user || !workspace) return;
 
     const wsProtocol = window.location.protocol === "https:" ? "wss:" : "ws:";
-    const wsUrl = `${wsProtocol}//${window.location.host}/api/ws`;
+    const wsUrl = `${wsProtocol}//${window.location.hostname}:3001`;
     const socket = new WebSocket(wsUrl);
+
+    socket.onopen = () => {
+      // Register this socket to listen only to notifications belonging to this workspace
+      socket.send(
+        JSON.stringify({
+          type: "join",
+          workspaceId: workspace.id,
+          userId: user.id,
+        })
+      );
+    };
 
     socket.onmessage = (event) => {
       try {

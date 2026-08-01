@@ -90,7 +90,8 @@ export async function POST(req: NextRequest) {
         message: formattedMessage,
       });
       wss.clients.forEach((client: any) => {
-        if (client.readyState === 1) { // OPEN
+        // Only send to clients who are actively viewing this team room
+        if (client.readyState === 1 && client.teamId === teamId) {
           client.send(broadcastData);
         }
       });
