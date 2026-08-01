@@ -27,6 +27,9 @@ export default function InboxPage() {
   const [currentUserMemberId, setCurrentUserMemberId] = useState<string | null>(null);
   const [newMessage, setNewMessage] = useState("");
   const [loading, setLoading] = useState(true);
+  
+  // Real-time WebSocket connection state
+  const [wsStatus, setWsStatus] = useState<"connecting" | "connected" | "disconnected">("connecting");
 
   const socketRef = useRef<WebSocket | null>(null);
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
@@ -58,6 +61,8 @@ export default function InboxPage() {
   useEffect(() => {
     if (!activeTeamId) return;
 
+    setWsStatus("connecting");
+
     // Establish WebSocket Connection using appropriate secure protocol
     const wsProtocol = window.location.protocol === "https:" ? "wss:" : "ws:";
     const wsUrl = `${wsProtocol}//${window.location.host}/api/ws`;
@@ -65,6 +70,7 @@ export default function InboxPage() {
 
     socket.onopen = () => {
       console.log("Connected to Real-time Chat WebSockets");
+      setWsStatus("connected");
     };
 
     socket.onmessage = (event) => {
@@ -73,7 +79,7 @@ export default function InboxPage() {
         if (packet.type === "message" && packet.message.teamId === activeTeamId) {
           // Add new incoming message to state
           setMessages((prev) => {
-            // Deduplicate in case of race conditions
+            // Deduplicate (e.g. if the message was already added by our local REST POST response)
             if (prev.some((m) => m.id === packet.message.id)) return prev;
             return [...prev, packet.message];
           });
@@ -85,6 +91,12 @@ export default function InboxPage() {
 
     socket.onclose = () => {
       console.log("Disconnected from Chat WebSockets");
+      setWsStatus("disconnected");
+    };
+
+    socket.onerror = () => {
+      console.warn("Error in Chat WebSocket connection");
+      setWsStatus("disconnected");
     };
 
     socketRef.current = socket;
@@ -107,23 +119,39 @@ export default function InboxPage() {
   };
 
   // Handle send message
-  const handleSendMessage = (e: React.FormEvent) => {
+  const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newMessage.trim() || !activeTeamId || !currentUserMemberId || !socketRef.current) return;
+    if (!newMessage.trim() || !activeTeamId || !currentUserMemberId) return;
 
-    if (socketRef.current.readyState === WebSocket.OPEN) {
-      // Send message via WebSockets
-      socketRef.current.send(
-        JSON.stringify({
-          type: "message",
+    const contentToSend = newMessage.trim();
+    setNewMessage(""); // Clear immediately for snappy UX
+
+    try {
+      // Send message via HTTP REST endpoint first (guarantees saving to PostgreSQL)
+      const res = await fetch("/api/inbox/messages", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
           teamId: activeTeamId,
-          authorId: currentUserMemberId,
-          content: newMessage.trim(),
-        })
-      );
-      setNewMessage("");
-    } else {
-      console.warn("WebSocket is currently closed. Retrying connection...");
+          content: contentToSend,
+        }),
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        // Optimistically add to our local state if not already there
+        setMessages((prev) => {
+          if (prev.some((m) => m.id === data.message.id)) return prev;
+          return [...prev, data.message];
+        });
+      } else {
+        throw new Error("Failed to deliver message.");
+      }
+    } catch (err) {
+      console.error(err);
+      // Restore input text on error
+      setNewMessage(contentToSend);
+      alert("Failed to deliver message. Please check your network connection.");
     }
   };
 
@@ -195,7 +223,15 @@ export default function InboxPage() {
             </div>
             <div className="text-left">
               <h4 className="text-xs font-extrabold text-slate-850 leading-tight">{activeTeamName}</h4>
-              <p className="text-[10px] text-emerald-500 font-bold tracking-wide mt-0.5">● Connected</p>
+              
+              {/* Dynamic WebSocket Connection Status */}
+              {wsStatus === "connected" ? (
+                <p className="text-[10px] text-emerald-500 font-bold tracking-wide mt-0.5 animate-pulse">● Connected (Live)</p>
+              ) : wsStatus === "connecting" ? (
+                <p className="text-[10px] text-amber-500 font-bold tracking-wide mt-0.5">● Connecting...</p>
+              ) : (
+                <p className="text-[10px] text-slate-400 font-bold tracking-wide mt-0.5">● Connected (REST Fallback)</p>
+              )}
             </div>
           </div>
         </div>
@@ -224,7 +260,7 @@ export default function InboxPage() {
                 >
                   {/* Author Avatar */}
                   <div className={cn(
-                    "w-8 h-8 rounded-full text-white font-extrabold text-xs flex items-center justify-center shrink-0 shadow-xs", 
+                    "w-8 h-8 rounded-full text-white font-extrabold text-xs flex items-center justify-center shrink-0 shadow-xs select-none", 
                     msg.authorColor
                   )}>
                     {msg.authorInitials}
@@ -238,7 +274,7 @@ export default function InboxPage() {
                       : "bg-white text-slate-700 border-slate-100 rounded-tl-none"
                   )}>
                     {!isMine && (
-                      <span className="text-[9px] font-extrabold text-indigo-650 block mb-0.5">
+                      <span className="text-[9px] font-extrabold text-indigo-655 block mb-0.5">
                         {msg.authorName}
                       </span>
                     )}
@@ -267,7 +303,7 @@ export default function InboxPage() {
             value={newMessage}
             onChange={(e) => setNewMessage(e.target.value)}
             placeholder={`Message ${activeTeamName}...`}
-            className="flex-1 bg-slate-50 border border-slate-100 rounded-xl px-4 py-2.5 text-xs text-slate-700 placeholder:text-slate-400 focus:outline-none focus:bg-white focus:border-indigo-500"
+            className="flex-1 bg-slate-55 border border-slate-100 rounded-xl px-4 py-2.5 text-xs text-slate-700 placeholder:text-slate-400 focus:outline-none focus:bg-white focus:border-indigo-500"
           />
           <button type="submit" className="bg-indigo-600 hover:bg-indigo-700 text-white p-2.5 rounded-xl transition-colors cursor-pointer flex items-center justify-center shrink-0">
             <Send className="w-4 h-4" />
