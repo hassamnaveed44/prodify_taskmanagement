@@ -3,6 +3,8 @@ const { parse } = require("url");
 const next = require("next");
 const { WebSocketServer } = require("ws");
 const { PrismaClient } = require("@prisma/client");
+const { PrismaPg } = require("@prisma/adapter-pg");
+const { Pool } = require("pg");
 
 const dev = process.env.NODE_ENV !== "production";
 const hostname = "localhost";
@@ -10,7 +12,15 @@ const port = parseInt(process.env.PORT || "3000", 10);
 
 const app = next({ dev, hostname, port });
 const handle = app.getRequestHandler();
-const prisma = new PrismaClient();
+
+// Configure Prisma 7 driver adapter to connect to database
+const connectionString = process.env.DATABASE_URL;
+if (!connectionString) {
+  throw new Error("DATABASE_URL is not defined in environment variables.");
+}
+const pool = new Pool({ connectionString });
+const adapter = new PrismaPg(pool);
+const prisma = new PrismaClient({ adapter });
 
 // Helper to get name initials
 function getInitials(name) {
