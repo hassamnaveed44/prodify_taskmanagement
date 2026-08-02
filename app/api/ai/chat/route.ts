@@ -18,7 +18,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const { prompt } = await req.json();
+    const { prompt, sessionId } = await req.json();
 
     if (!prompt || !prompt.trim()) {
       return NextResponse.json(
@@ -73,7 +73,28 @@ INSTRUCTIONS:
 6. You are also a general-purpose AI companion. If the user's prompt is a general knowledge question, code query, greeting, or conversation unrelated to project management or tasks, ignore the workspace database context and answer their question directly, fully, and helpfully.
 `;
 
-    // 3. Detect AI provider setting
+    // 3. Resolve active chat session or create one
+    let activeSessionId = sessionId;
+    if (!activeSessionId) {
+      const titleText = prompt.trim().substring(0, 32) + (prompt.trim().length > 32 ? "..." : "");
+      const newSession = await db.chatSession.create({
+        data: {
+          title: titleText,
+          userId: payload.userId,
+        },
+      });
+      activeSessionId = newSession.id;
+    }
+
+    // Write USER message to chat history database
+    await db.chatMessage.create({
+      data: {
+        sessionId: activeSessionId,
+        sender: "USER",
+        content: prompt.trim(),
+      },
+    });
+
     const provider = process.env.AI_PROVIDER || "gemini";
     const userPrompt = prompt.trim();
     const encoder = new TextEncoder();
@@ -81,7 +102,13 @@ INSTRUCTIONS:
     // 4. Construct ReadableStream for EventSource/SSE Streaming
     const stream = new ReadableStream({
       async start(controller) {
+        let accumulatedText = "";
         try {
+          // Send metadata block containing the sessionId immediately so client can store it
+          controller.enqueue(
+            encoder.encode(`data: ${JSON.stringify({ sessionId: activeSessionId })}\n\n`)
+          );
+
           if (provider === "gemini") {
             const apiKey = process.env.GEMINI_API_KEY;
 
@@ -99,22 +126,26 @@ Here is what your live workspace database context contains right now:
 *Mock Response Preview:*
 Based on your database, you have ${dbTasks.filter(t => t.status !== "COMPLETED").length} pending tasks. Try resolving your highest priority item in the project: **"${dbProjects[0]?.name || 'N/A'}"**!`;
               
+              accumulatedText = warningMsg;
               controller.enqueue(encoder.encode(`data: ${JSON.stringify({ text: warningMsg })}\n\n`));
               controller.close();
               return;
             }
 
+            // Correct Gemini 2.0 Flash public identifier is 'gemini-2.0-flash'
             const genAI = new GoogleGenerativeAI(apiKey);
             const model = genAI.getGenerativeModel({
-              model: "gemini-2.5-flash",
+              model: "gemini-3.6-flash",
               systemInstruction: contextSummary,
             });
+
             const responseStream = await model.generateContentStream({
               contents: [{ role: "user", parts: [{ text: userPrompt }] }],
             });
 
             for await (const chunk of responseStream.stream) {
               const text = chunk.text();
+              accumulatedText += text;
               controller.enqueue(encoder.encode(`data: ${JSON.stringify({ text })}\n\n`));
             }
           } else {
@@ -126,6 +157,7 @@ Based on your database, you have ${dbTasks.filter(t => t.status !== "COMPLETED")
 
 Please configure your actual \`GROK_API_KEY\` inside your database configuration file [\\.env](file:///D:/prodify_taskmanagement/.env) to activate the live Grok assistant!`;
               
+              accumulatedText = warningMsg;
               controller.enqueue(encoder.encode(`data: ${JSON.stringify({ text: warningMsg })}\n\n`));
               controller.close();
               return;
@@ -173,6 +205,7 @@ Please configure your actual \`GROK_API_KEY\` inside your database configuration
                   const parsed = JSON.parse(dataStr);
                   const text = parsed.choices?.[0]?.delta?.content || "";
                   if (text) {
+                    accumulatedText += text;
                     controller.enqueue(encoder.encode(`data: ${JSON.stringify({ text })}\n\n`));
                   }
                 } catch (e) {
@@ -180,6 +213,23 @@ Please configure your actual \`GROK_API_KEY\` inside your database configuration
                 }
               }
             }
+          }
+
+          // Write AI response to the database after successful generation completes
+          if (accumulatedText.trim()) {
+            await db.chatMessage.create({
+              data: {
+                sessionId: activeSessionId,
+                sender: "AI",
+                content: accumulatedText.trim(),
+              },
+            });
+
+            // Update session timestamp
+            await db.chatSession.update({
+              where: { id: activeSessionId },
+              data: { updatedAt: new Date() },
+            });
           }
         } catch (err: any) {
           console.error("SSE Streaming failure:", err);
