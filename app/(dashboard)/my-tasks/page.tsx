@@ -61,11 +61,18 @@ export default function MyTasksPage() {
   };
 
   // Helper to format due date labels
-  const getDueDateLabel = (dueDateString: string | null) => {
+  const getDueDateLabel = (dueDateString: string | null, status?: string) => {
     if (!dueDateString) return { label: "No due date", color: "text-slate-400" };
     const date = new Date(dueDateString);
     const today = new Date();
     
+    if (status === "COMPLETED") {
+      return { 
+        label: date.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }), 
+        color: "text-slate-400" 
+      };
+    }
+
     const isToday = date.toDateString() === today.toDateString();
     if (isToday) return { label: "Today", color: "text-red-550 font-bold" };
     
@@ -126,7 +133,7 @@ export default function MyTasksPage() {
             </thead>
             <tbody className="divide-y divide-slate-50 text-xs font-semibold text-slate-655">
               {tasks.map((task) => {
-                const dateInfo = getDueDateLabel(task.dueDate);
+                const dateInfo = getDueDateLabel(task.dueDate, task.status);
                 return (
                   <tr key={task.id} className="hover:bg-slate-50/50 transition-colors">
                     <td className="py-4 px-4 font-bold text-slate-800 text-left max-w-sm truncate">

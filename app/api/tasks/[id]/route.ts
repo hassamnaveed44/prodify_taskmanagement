@@ -42,7 +42,13 @@ export async function PATCH(req: NextRequest, { params }: RouteParams) {
     if (description !== undefined) updateData.description = description;
     if (status !== undefined) updateData.status = status as TaskStatus;
     if (priority !== undefined) updateData.priority = priority as TaskPriority;
-    if (dueDate !== undefined) updateData.dueDate = dueDate ? new Date(dueDate) : null;
+    if (dueDate !== undefined) {
+      updateData.dueDate = dueDate ? (() => {
+        const d = new Date(dueDate);
+        if (d.getFullYear() < 2020) d.setFullYear(2026);
+        return d;
+      })() : null;
+    }
     if (assigneeId !== undefined) updateData.assigneeId = assigneeId;
 
     // Perform database update

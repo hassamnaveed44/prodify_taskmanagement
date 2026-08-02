@@ -63,7 +63,11 @@ export async function POST(req: NextRequest) {
         description: description || null,
         status: (status as TaskStatus) || TaskStatus.TODO,
         priority: (priority as TaskPriority) || TaskPriority.MEDIUM,
-        dueDate: dueDate ? new Date(dueDate) : null,
+        dueDate: dueDate ? (() => {
+          const d = new Date(dueDate);
+          if (d.getFullYear() < 2020) d.setFullYear(2026);
+          return d;
+        })() : null,
         projectId,
         assigneeId: targetAssigneeId || null,
       },
@@ -109,6 +113,60 @@ export async function POST(req: NextRequest) {
     console.error("POST /api/tasks failed:", error);
     return NextResponse.json(
       { error: "An unexpected error occurred creating task." },
+      { status: 500 }
+    );
+  }
+}
+
+export async function GET(req: NextRequest) {
+  try {
+    const accessToken = req.cookies.get("accessToken")?.value;
+
+    if (!accessToken) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const payload = await verifyAccessToken(accessToken);
+    if (!payload) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const projects = await db.project.findMany({
+      where: { workspaceId: payload.workspaceId },
+    });
+
+    const tasks = await db.task.findMany({
+      where: {
+        projectId: { in: projects.map((p) => p.id) },
+      },
+      include: {
+        project: true,
+        assignee: {
+          include: { user: true },
+        },
+      },
+      orderBy: { dueDate: "asc" },
+    });
+
+    return NextResponse.json({
+      status: "success",
+      tasks: tasks.map((t) => ({
+        id: t.id,
+        name: t.name,
+        description: t.description,
+        status: t.status,
+        priority: t.priority,
+        dueDate: t.dueDate,
+        projectName: t.project.name,
+        projectSlug: t.project.slug,
+        assignee: t.assignee?.user.name || null,
+        assigneeId: t.assigneeId,
+      })),
+    });
+  } catch (error) {
+    console.error("GET /api/tasks failed:", error);
+    return NextResponse.json(
+      { error: "An unexpected error occurred loading tasks." },
       { status: 500 }
     );
   }
