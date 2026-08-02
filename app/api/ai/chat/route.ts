@@ -53,13 +53,13 @@ You are Prodify AI, the virtual project management assistant for the Prodify Tas
 Here is the live database snapshot context for the current workspace. Use it to answer the user's questions truthfully and precisely:
 
 PROJECTS IN WORKSPACE:
-${dbProjects.length === 0 ? "No projects created yet." : dbProjects.map((p) => `- "${p.name}" (Slug: ${p.slug})`).join("\n")}
+${dbProjects.length === 0 ? "No projects created yet." : dbProjects.map((p: any) => `- "${p.name}" (Slug: ${p.slug})`).join("\n")}
 
 ALL TASKS IN WORKSPACE:
-${dbTasks.length === 0 ? "No tasks added yet." : dbTasks.map((t) => `- "${t.name}" | Project: "${t.project.name}" | Status: ${t.status} | Priority: ${t.priority} | Due Date: ${t.dueDate ? t.dueDate.toISOString().split('T')[0] : 'None'} | Assigned To: ${t.assignee ? t.assignee.user.name : 'Unassigned'}`).join("\n")}
+${dbTasks.length === 0 ? "No tasks added yet." : dbTasks.map((t: any) => `- "${t.name}" | Project: "${t.project.name}" | Status: ${t.status} | Priority: ${t.priority} | Due Date: ${t.dueDate ? t.dueDate.toISOString().split('T')[0] : 'None'} | Assigned To: ${t.assignee ? t.assignee.user.name : 'Unassigned'}`).join("\n")}
 
 WORKSPACE MEMBERS & ACCESS ROLES:
-${dbMembers.map((m) => `- Name: ${m.user.name} | Email: ${m.user.email} | Access Role: ${m.role}`).join("\n")}
+${dbMembers.map((m: any) => `- Name: ${m.user.name} | Email: ${m.user.email} | Access Role: ${m.role}`).join("\n")}
 
 LOGGED-IN USER SESSION DETAILS:
 - Name: ${payload.name}
