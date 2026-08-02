@@ -34,6 +34,7 @@ export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
   const isProtected = protectedPaths.some(path => pathname.startsWith(path)) ||
+                      pathname === "/api/auth/me" ||
                       (pathname.startsWith("/api/") && !pathname.startsWith("/api/auth/") && !pathname.startsWith("/api/ping"));
   const isAuthPage = authPaths.some(path => pathname.startsWith(path));
 
