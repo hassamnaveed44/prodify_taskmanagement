@@ -4,9 +4,36 @@ import "./globals.css";
 
 import { ToastProvider } from "@/components/ui/toast-provider";
 
+const APP_URL = process.env.NEXT_PUBLIC_APP_URL || "https://prodify-taskmanagement.vercel.app";
+
 export const metadata: Metadata = {
-  title: "Prodify — AI Workspace Dashboard",
-  description: "AI-powered workspace and task management dashboard.",
+  title: {
+    default: "Prodify — AI-Powered Workspace Dashboard",
+    template: "%s — Prodify",
+  },
+  description: "Prodify is an AI-powered task management and workspace collaboration platform. Manage projects, track deadlines, and communicate in real-time.",
+  metadataBase: new URL(APP_URL),
+  keywords: ["task management", "project management", "AI workspace", "team collaboration", "Prodify"],
+  authors: [{ name: "Prodify Team" }],
+  creator: "Prodify",
+  robots: {
+    index: true,
+    follow: true,
+  },
+  openGraph: {
+    type: "website",
+    locale: "en_US",
+    url: APP_URL,
+    siteName: "Prodify",
+    title: "Prodify — AI-Powered Workspace Dashboard",
+    description: "Manage projects, track deadlines, and collaborate with your team in real-time.",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Prodify — AI-Powered Workspace Dashboard",
+    description: "Manage projects, track deadlines, and collaborate with your team in real-time.",
+    creator: "@prodify",
+  },
 };
 
 export default function RootLayout({
