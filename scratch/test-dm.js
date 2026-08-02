@@ -1,33 +1,23 @@
 const { loadEnvConfig } = require("@next/env");
 loadEnvConfig(process.cwd());
 
-const { PrismaClient } = require("@prisma/client");
-const { PrismaPg } = require("@prisma/adapter-pg");
-const { Pool } = require("pg");
-
-const connectionString = process.env.DATABASE_URL;
-if (!connectionString) {
-  console.error("DATABASE_URL is not defined");
-  process.exit(1);
-}
-
-const pool = new Pool({ connectionString });
-const adapter = new PrismaPg(pool);
-const prisma = new PrismaClient({ adapter });
+const db = require("../lib/db.ts").default;
 
 async function run() {
   try {
-    const users = await prisma.user.findMany({
-      select: { id: true, name: true, email: true }
+    const tasks = await db.task.findMany({
+      select: {
+        id: true,
+        name: true,
+        status: true,
+        dueDate: true
+      }
     });
-    console.log("Users:", users);
-
-    const dms = await prisma.directMessage.findMany();
-    console.log("DMs:", dms);
+    console.log("Tasks in DB:", JSON.stringify(tasks, null, 2));
   } catch (err) {
-    console.error("Error:", err);
+    console.error(err);
   } finally {
-    await prisma.$disconnect();
+    await db.$disconnect();
     process.exit(0);
   }
 }

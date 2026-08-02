@@ -63,7 +63,11 @@ export async function POST(req: NextRequest) {
         description: description || null,
         status: (status as TaskStatus) || TaskStatus.TODO,
         priority: (priority as TaskPriority) || TaskPriority.MEDIUM,
-        dueDate: dueDate ? new Date(dueDate) : null,
+        dueDate: dueDate ? (() => {
+          const d = new Date(dueDate);
+          if (d.getFullYear() < 2020) d.setFullYear(2026);
+          return d;
+        })() : null,
         projectId,
         assigneeId: targetAssigneeId || null,
       },

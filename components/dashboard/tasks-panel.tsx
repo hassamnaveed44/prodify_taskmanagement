@@ -42,11 +42,18 @@ export default function TasksPanel({ tasks, onStatusChange }: TasksPanelProps) {
   };
 
   // Helper to format due date labels
-  const getDueDateLabel = (dueDateString: string | null) => {
+  const getDueDateLabel = (dueDateString: string | null, status?: string) => {
     if (!dueDateString) return { label: "No due date", color: "text-slate-400" };
     const date = new Date(dueDateString);
     const today = new Date();
     
+    if (status === "COMPLETED") {
+      return { 
+        label: date.toLocaleDateString("en-US", { month: "short", day: "numeric" }), 
+        color: "text-slate-400" 
+      };
+    }
+
     // Simple comparison
     const isToday = date.toDateString() === today.toDateString();
     if (isToday) return { label: "Today", color: "text-red-500 font-bold" };
@@ -121,7 +128,7 @@ export default function TasksPanel({ tasks, onStatusChange }: TasksPanelProps) {
                 <p className="text-slate-350 text-xs italic py-2 pl-2">No tasks in progress.</p>
               ) : (
                 tasksInProgress.map((task) => {
-                  const dateInfo = getDueDateLabel(task.dueDate);
+                  const dateInfo = getDueDateLabel(task.dueDate, task.status);
                   return (
                     <div key={task.id} className="flex items-center justify-between py-2 border-b border-slate-50 last:border-b-0 hover:bg-slate-50/50 rounded-xl px-2 transition-colors -mx-2">
                       <div className="flex items-center gap-3">
@@ -169,7 +176,7 @@ export default function TasksPanel({ tasks, onStatusChange }: TasksPanelProps) {
                 <p className="text-slate-350 text-xs italic py-2 pl-2">No pending tasks.</p>
               ) : (
                 tasksTodo.map((task) => {
-                  const dateInfo = getDueDateLabel(task.dueDate);
+                  const dateInfo = getDueDateLabel(task.dueDate, task.status);
                   return (
                     <div key={task.id} className="flex items-center justify-between py-2 border-b border-slate-50 last:border-b-0 hover:bg-slate-50/50 rounded-xl px-2 transition-colors -mx-2">
                       <div className="flex items-center gap-3">
@@ -215,7 +222,7 @@ export default function TasksPanel({ tasks, onStatusChange }: TasksPanelProps) {
             {sections.upcoming && (
               <div className="pl-6 space-y-2.5">
                 {tasksUpcoming.map((task) => {
-                  const dateInfo = getDueDateLabel(task.dueDate);
+                  const dateInfo = getDueDateLabel(task.dueDate, task.status);
                   return (
                     <div key={task.id} className="flex items-center justify-between py-2 border-b border-slate-50 last:border-b-0 hover:bg-slate-50/50 rounded-xl px-2 transition-colors -mx-2">
                       <div className="flex items-center gap-3">
@@ -261,7 +268,7 @@ export default function TasksPanel({ tasks, onStatusChange }: TasksPanelProps) {
             {sections.completed && (
               <div className="pl-6 space-y-2.5">
                 {tasksCompleted.map((task) => {
-                  const dateInfo = getDueDateLabel(task.dueDate);
+                  const dateInfo = getDueDateLabel(task.dueDate, task.status);
                   return (
                     <div key={task.id} className="flex items-center justify-between py-2 border-b border-slate-50 last:border-b-0 hover:bg-slate-50/50 rounded-xl px-2 transition-colors -mx-2">
                       <div className="flex items-center gap-3">

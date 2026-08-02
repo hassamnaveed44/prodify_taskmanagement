@@ -191,17 +191,46 @@ export default function CalendarPage() {
                     cell.isCurrentMonth ? "bg-white" : "bg-slate-50/20"
                   )}
                 >
-                  {/* Day cell indicator badge */}
-                  <span className={cn(
-                    "w-6 h-6 rounded-full text-xs font-black flex items-center justify-center select-none shadow-xs",
-                    cell.isToday 
-                      ? "bg-indigo-600 text-white animate-scale-up" 
-                      : cell.isCurrentMonth 
-                        ? "text-slate-700" 
-                        : "text-slate-300"
-                  )}>
-                    {cell.day}
-                  </span>
+                  {/* Day cell header row containing indicator badge and dots */}
+                  <div className="flex items-center justify-between">
+                    <span className={cn(
+                      "w-6 h-6 rounded-full text-xs font-black flex items-center justify-center select-none shadow-xs",
+                      cell.isToday 
+                        ? "bg-indigo-600 text-white animate-scale-up" 
+                        : cell.isCurrentMonth 
+                          ? "text-slate-700" 
+                          : "text-slate-300"
+                    )}>
+                      {cell.day}
+                    </span>
+
+                    {/* Deadline dot indicators */}
+                    {dayTasks.length > 0 && (
+                      <div className="flex gap-1 pr-1 items-center">
+                        {dayTasks.slice(0, 3).map((t) => (
+                          <span
+                            key={t.id}
+                            title={`${t.name} (${t.priority})`}
+                            className={cn(
+                              "w-1.5 h-1.5 rounded-full animate-scale-up",
+                              t.status === "COMPLETED"
+                                ? "bg-emerald-400"
+                                : t.priority === "HIGH"
+                                  ? "bg-red-500"
+                                  : t.priority === "MEDIUM"
+                                    ? "bg-amber-500"
+                                    : "bg-indigo-400"
+                            )}
+                          />
+                        ))}
+                        {dayTasks.length > 3 && (
+                          <span className="text-[8px] font-bold text-slate-400 leading-none" title={`${dayTasks.length - 3} more tasks`}>
+                            +
+                          </span>
+                        )}
+                      </div>
+                    )}
+                  </div>
 
                   {/* Day cell tasks badges list */}
                   <div className="flex-1 overflow-y-auto space-y-1 mt-1 pr-0.5 max-h-[80px]">
