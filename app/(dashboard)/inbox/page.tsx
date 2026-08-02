@@ -63,7 +63,7 @@ export default function InboxPage() {
         url = `/api/inbox?dmUserId=${options.dmUserId}`;
       }
       
-      const response = await fetch(url);
+      const response = await fetch(url, { cache: "no-store" });
       if (response.ok) {
         const data = await response.json();
         setTeams(data.teams || []);
