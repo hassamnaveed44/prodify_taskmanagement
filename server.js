@@ -140,6 +140,24 @@ app.prepare().then(() => {
             }
           });
         }
+        
+        // Handle DM typing status updates
+        else if (packet.type === "dm-typing" && packet.receiverId) {
+          const typingBroadcast = JSON.stringify({
+            type: "dm-typing",
+            senderId: packet.senderId,
+            receiverId: packet.receiverId,
+            senderName: packet.senderName,
+            isTyping: packet.isTyping,
+          });
+
+          // Broadcast strictly to the intended receiver client
+          wss.clients.forEach((client) => {
+            if (client.readyState === 1 && client.userId === packet.receiverId) {
+              client.send(typingBroadcast);
+            }
+          });
+        }
       } catch (err) {
         console.error("Error processing websocket message:", err);
       }

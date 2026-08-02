@@ -37,10 +37,69 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const { teamId, content } = await req.json();
+    const { teamId, receiverId, content } = await req.json();
 
-    if (!teamId || !content || !content.trim()) {
-      return NextResponse.json({ error: "teamId and content are required." }, { status: 400 });
+    if (!content || !content.trim()) {
+      return NextResponse.json({ error: "Message content is required." }, { status: 400 });
+    }
+
+    // Case A: Send Direct Message (DM)
+    if (receiverId) {
+      const createdDm = await db.directMessage.create({
+        data: {
+          senderId: payload.userId,
+          receiverId,
+          content: content.trim(),
+        },
+        include: {
+          sender: true,
+        },
+      });
+
+      const formattedMessage = {
+        id: createdDm.id,
+        teamId: "",
+        authorId: createdDm.senderId,
+        content: createdDm.content,
+        createdAt: createdDm.createdAt,
+        authorName: createdDm.sender.name,
+        authorInitials: getInitials(createdDm.sender.name),
+        authorColor: getAuthorColor(createdDm.sender.name),
+      };
+
+      // Broadcast via WebSocket strictly to receiver and sender clients
+      if ((global as any).wss) {
+        const wss = (global as any).wss;
+        const broadcastData = JSON.stringify({
+          type: "dm",
+          message: {
+            id: createdDm.id,
+            senderId: createdDm.senderId,
+            receiverId: createdDm.receiverId,
+            content: createdDm.content,
+            createdAt: createdDm.createdAt,
+            authorName: createdDm.sender.name,
+            authorInitials: getInitials(createdDm.sender.name),
+            authorColor: getAuthorColor(createdDm.sender.name),
+          },
+        });
+
+        wss.clients.forEach((client: any) => {
+          if (client.readyState === 1 && (client.userId === receiverId || client.userId === payload.userId)) {
+            client.send(broadcastData);
+          }
+        });
+      }
+
+      return NextResponse.json({
+        status: "success",
+        message: formattedMessage,
+      });
+    }
+
+    // Case B: Send Channel Message (Team Group Chat)
+    if (!teamId) {
+      return NextResponse.json({ error: "Either teamId or receiverId is required." }, { status: 400 });
     }
 
     // Get active workspace membership

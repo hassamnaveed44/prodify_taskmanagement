@@ -23,6 +23,8 @@ model User {
   memberships       WorkspaceMember[]
   refreshTokens     RefreshToken[]
   chatSessions      ChatSession[]
+  directMessagesSent     DirectMessage[]   @relation("DMSender")
+  directMessagesReceived DirectMessage[]   @relation("DMReceiver")
 }
 
 // Session Refresh Tokens for Rotation
@@ -229,4 +231,17 @@ model ChatMessage {
   sender    ChatSender
   content   String
   createdAt DateTime    @default(now())
+}
+
+// Direct messages between Users across workspaces
+model DirectMessage {
+  id         String   @id @default(uuid())
+  senderId   String
+  sender     User     @relation("DMSender", fields: [senderId], references: [id], onDelete: Cascade)
+  receiverId String
+  receiver   User     @relation("DMReceiver", fields: [receiverId], references: [id], onDelete: Cascade)
+  content    String
+  createdAt  DateTime @default(now())
+
+  @@index([senderId, receiverId])
 }

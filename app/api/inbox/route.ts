@@ -13,7 +13,7 @@ function getInitials(name: string): string {
 // Helper for background colors
 function getAuthorColor(name: string): string {
   const colors = [
-    "bg-indigo-600",
+    "bg-indigo-650",
     "bg-orange-500",
     "bg-emerald-500",
     "bg-pink-500",
@@ -57,10 +57,60 @@ export async function GET(req: NextRequest) {
       orderBy: { createdAt: "asc" },
     });
 
-    // 3. Defensive: if no channels, create a default "General Chat" channel
+    // 3. Fetch all other users registered in the system (for Direct Messaging DMs)
+    const allUsers = await db.user.findMany({
+      where: { id: { not: payload.userId } },
+      select: { id: true, name: true, email: true },
+      orderBy: { name: "asc" },
+    });
+
+    // Determine query parameters
+    const { searchParams } = new URL(req.url);
+    const dmUserId = searchParams.get("dmUserId");
+
+    // Case A: Load Direct Messages history (DM)
+    if (dmUserId) {
+      const dms = await db.directMessage.findMany({
+        where: {
+          OR: [
+            { senderId: payload.userId, receiverId: dmUserId },
+            { senderId: dmUserId, receiverId: payload.userId },
+          ],
+        },
+        include: {
+          sender: true,
+        },
+        orderBy: { createdAt: "asc" },
+      });
+
+      const formattedMessages = dms.map((m) => ({
+        id: m.id,
+        teamId: "",
+        authorId: m.senderId,
+        content: m.content,
+        createdAt: m.createdAt,
+        authorName: m.sender.name,
+        authorInitials: getInitials(m.sender.name),
+        authorColor: getAuthorColor(m.sender.name),
+      }));
+
+      return NextResponse.json({
+        status: "success",
+        currentUserMemberId: payload.userId, // Map memberId directly to userId in DMs
+        currentUserName: payload.name,
+        currentUserId: payload.userId,
+        workspaceId: payload.workspaceId,
+        activeTeamId: null,
+        activeDmUserId: dmUserId,
+        teams: teams.map((t) => ({ id: t.id, name: t.name })),
+        users: allUsers,
+        messages: formattedMessages,
+      });
+    }
+
+    // Case B: Load Channel Messages (Default Team)
     if (teams.length === 0) {
       const defaultTeam = await db.$transaction(async (tx) => {
-        // Create the team
         const newTeam = await tx.team.create({
           data: {
             name: "General Chat",
@@ -68,7 +118,6 @@ export async function GET(req: NextRequest) {
           },
         });
 
-        // Add all workspace members to the team
         const allWorkspaceMembers = await tx.workspaceMember.findMany({
           where: { workspaceId: payload.workspaceId },
         });
@@ -82,7 +131,6 @@ export async function GET(req: NextRequest) {
           });
         }
 
-        // Add default welcome message
         await tx.message.create({
           data: {
             teamId: newTeam.id,
@@ -97,15 +145,12 @@ export async function GET(req: NextRequest) {
       teams = [defaultTeam];
     }
 
-    // Determine active team channel
-    const { searchParams } = new URL(req.url);
     const targetTeamId = searchParams.get("teamId") || teams[0]?.id;
 
     if (!targetTeamId) {
       return NextResponse.json({ error: "No channels available." }, { status: 404 });
     }
 
-    // 4. Fetch all messages in the active team
     const messages = await db.message.findMany({
       where: { teamId: targetTeamId },
       include: {
@@ -116,7 +161,6 @@ export async function GET(req: NextRequest) {
       orderBy: { createdAt: "asc" },
     });
 
-    // Format messages list
     const formattedMessages = messages.map((m) => ({
       id: m.id,
       teamId: m.teamId,
@@ -132,12 +176,12 @@ export async function GET(req: NextRequest) {
       status: "success",
       currentUserMemberId: membership.id,
       currentUserName: payload.name,
+      currentUserId: payload.userId,
       workspaceId: payload.workspaceId,
       activeTeamId: targetTeamId,
-      teams: teams.map((t) => ({
-        id: t.id,
-        name: t.name,
-      })),
+      activeDmUserId: null,
+      teams: teams.map((t) => ({ id: t.id, name: t.name })),
+      users: allUsers,
       messages: formattedMessages,
     });
   } catch (error) {

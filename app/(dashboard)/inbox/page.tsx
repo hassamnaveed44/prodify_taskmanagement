@@ -1,12 +1,18 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { Inbox, Send, Search, Loader2 } from "lucide-react";
+import { Inbox, Send, Search, Loader2, MessageSquare, Hash } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface Team {
   id: string;
   name: string;
+}
+
+interface UserDM {
+  id: string;
+  name: string;
+  email: string;
 }
 
 interface ChatMessage {
@@ -22,11 +28,17 @@ interface ChatMessage {
 
 export default function InboxPage() {
   const [teams, setTeams] = useState<Team[]>([]);
+  const [users, setUsers] = useState<UserDM[]>([]);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
+  
   const [activeTeamId, setActiveTeamId] = useState<string | null>(null);
+  const [activeDmUserId, setActiveDmUserId] = useState<string | null>(null);
+  
   const [currentUserMemberId, setCurrentUserMemberId] = useState<string | null>(null);
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [currentUserName, setCurrentUserName] = useState("Teammate");
   const [workspaceId, setWorkspaceId] = useState<string | null>(null);
+  
   const [newMessage, setNewMessage] = useState("");
   const [loading, setLoading] = useState(true);
   
@@ -41,24 +53,33 @@ export default function InboxPage() {
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
   const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Fetch initial chat datasets
-  const fetchInboxData = async (teamId?: string) => {
+  // Fetch chat datasets
+  const fetchInboxData = async (options?: { teamId?: string; dmUserId?: string }) => {
     try {
-      const url = teamId ? `/api/inbox?teamId=${teamId}` : "/api/inbox";
+      let url = "/api/inbox";
+      if (options?.teamId) {
+        url = `/api/inbox?teamId=${options.teamId}`;
+      } else if (options?.dmUserId) {
+        url = `/api/inbox?dmUserId=${options.dmUserId}`;
+      }
+      
       const response = await fetch(url);
       if (response.ok) {
         const data = await response.json();
-        setTeams(data.teams);
-        setMessages(data.messages);
-        setActiveTeamId(data.activeTeamId);
+        setTeams(data.teams || []);
+        setUsers(data.users || []);
+        setMessages(data.messages || []);
+        setActiveTeamId(data.activeTeamId || null);
+        setActiveDmUserId(data.activeDmUserId || null);
         setCurrentUserMemberId(data.currentUserMemberId);
+        setCurrentUserId(data.currentUserId || null);
         setWorkspaceId(data.workspaceId || null);
         if (data.currentUserName) {
           setCurrentUserName(data.currentUserName);
         }
       }
     } catch (err) {
-      console.error("Failed to load chat workspace channels:", err);
+      console.error("Failed to load chat data:", err);
     } finally {
       setLoading(false);
     }
@@ -70,10 +91,12 @@ export default function InboxPage() {
 
   // Set up WebSocket Connection
   useEffect(() => {
-    if (!activeTeamId || !workspaceId || !currentUserMemberId) return;
+    // We need currentUserId to properly register join scopes
+    const joinUserId = currentUserId || currentUserMemberId;
+    if (!joinUserId) return;
 
     setWsStatus("connecting");
-    setActiveTypers({}); // Clear typers on channel switch
+    setActiveTypers({}); // Clear active typers on switch
 
     // Establish WebSocket Connection using appropriate secure protocol
     const wsProtocol = window.location.protocol === "https:" ? "wss:" : "ws:";
@@ -88,9 +111,9 @@ export default function InboxPage() {
       socket.send(
         JSON.stringify({
           type: "join",
-          teamId: activeTeamId,
-          workspaceId,
-          userId: currentUserMemberId,
+          teamId: activeTeamId || "",
+          workspaceId: workspaceId || "",
+          userId: joinUserId,
         })
       );
     };
@@ -98,15 +121,41 @@ export default function InboxPage() {
     socket.onmessage = (event) => {
       try {
         const packet = JSON.parse(event.data);
-        if (packet.type === "message" && packet.message.teamId === activeTeamId) {
-          // Add new incoming message to state
+        
+        // Handle channel message broadcasts
+        if (packet.type === "message" && activeTeamId && packet.message.teamId === activeTeamId) {
           setMessages((prev) => {
-            // Deduplicate (e.g. if the message was already added by our local REST POST response)
             if (prev.some((m) => m.id === packet.message.id)) return prev;
             return [...prev, packet.message];
           });
-        } else if (packet.type === "typing" && packet.teamId === activeTeamId) {
-          // Handle incoming typing updates
+        } 
+        
+        // Handle direct message broadcasts
+        else if (packet.type === "dm" && activeDmUserId) {
+          const isRelevant = 
+            (packet.message.senderId === activeDmUserId && packet.message.receiverId === joinUserId) ||
+            (packet.message.senderId === joinUserId && packet.message.receiverId === activeDmUserId);
+
+          if (isRelevant) {
+            setMessages((prev) => {
+              if (prev.some((m) => m.id === packet.message.id)) return prev;
+              // Format to matches UI structures
+              return [...prev, {
+                id: packet.message.id,
+                teamId: "",
+                authorId: packet.message.senderId,
+                content: packet.message.content,
+                createdAt: packet.message.createdAt,
+                authorName: packet.message.authorName,
+                authorInitials: packet.message.authorInitials,
+                authorColor: packet.message.authorColor,
+              }];
+            });
+          }
+        } 
+        
+        // Handle channel typing indicator updates
+        else if (packet.type === "typing" && activeTeamId && packet.teamId === activeTeamId) {
           if (packet.isTyping) {
             setActiveTypers((prev) => ({
               ...prev,
@@ -116,6 +165,22 @@ export default function InboxPage() {
             setActiveTypers((prev) => {
               const updated = { ...prev };
               delete updated[packet.authorId];
+              return updated;
+            });
+          }
+        }
+
+        // Handle DM typing indicator updates
+        else if (packet.type === "dm-typing" && activeDmUserId && packet.senderId === activeDmUserId) {
+          if (packet.isTyping) {
+            setActiveTypers((prev) => ({
+              ...prev,
+              [packet.senderId]: packet.senderName,
+            }));
+          } else {
+            setActiveTypers((prev) => {
+              const updated = { ...prev };
+              delete updated[packet.senderId];
               return updated;
             });
           }
@@ -140,7 +205,7 @@ export default function InboxPage() {
     return () => {
       socket.close();
     };
-  }, [activeTeamId]);
+  }, [activeTeamId, activeDmUserId, workspaceId, currentUserId, currentUserMemberId]);
 
   // Scroll to bottom on new messages
   useEffect(() => {
@@ -151,26 +216,45 @@ export default function InboxPage() {
   const handleTeamSelect = (teamId: string) => {
     if (teamId === activeTeamId) return;
     setLoading(true);
-    fetchInboxData(teamId);
+    fetchInboxData({ teamId });
+  };
+
+  // Handle DM partner switch
+  const handleDmSelect = (dmUserId: string) => {
+    if (dmUserId === activeDmUserId) return;
+    setLoading(true);
+    fetchInboxData({ dmUserId });
   };
 
   // Handle Input Changes & Typing Indicator Broadcasts
   const handleInputChange = (val: string) => {
     setNewMessage(val);
 
-    if (socketRef.current && socketRef.current.readyState === WebSocket.OPEN && currentUserMemberId && activeTeamId) {
+    const senderId = currentUserId || currentUserMemberId;
+    if (socketRef.current && socketRef.current.readyState === WebSocket.OPEN && senderId) {
+      
+      // Determine typing properties
+      const isDm = activeDmUserId !== null;
+      const type = isDm ? "dm-typing" : "typing";
+      const payload: any = {
+        type,
+        senderId,
+        senderName: currentUserName,
+        isTyping: true,
+      };
+
+      if (isDm) {
+        payload.receiverId = activeDmUserId;
+      } else {
+        payload.teamId = activeTeamId;
+        payload.authorId = currentUserMemberId;
+        payload.authorName = currentUserName;
+      }
+
       // Trigger "Typing Started"
       if (!isCurrentlyTyping) {
         setIsCurrentlyTyping(true);
-        socketRef.current.send(
-          JSON.stringify({
-            type: "typing",
-            teamId: activeTeamId,
-            authorId: currentUserMemberId,
-            authorName: currentUserName,
-            isTyping: true,
-          })
-        );
+        socketRef.current.send(JSON.stringify(payload));
       }
 
       // Debounce "Typing Stopped" (1.8s delay)
@@ -178,15 +262,8 @@ export default function InboxPage() {
       typingTimeoutRef.current = setTimeout(() => {
         setIsCurrentlyTyping(false);
         if (socketRef.current && socketRef.current.readyState === WebSocket.OPEN) {
-          socketRef.current.send(
-            JSON.stringify({
-              type: "typing",
-              teamId: activeTeamId,
-              authorId: currentUserMemberId,
-              authorName: currentUserName,
-              isTyping: false,
-            })
-          );
+          payload.isTyping = false;
+          socketRef.current.send(JSON.stringify(payload));
         }
       }, 1800);
     }
@@ -195,7 +272,8 @@ export default function InboxPage() {
   // Handle send message
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newMessage.trim() || !activeTeamId || !currentUserMemberId) return;
+    const senderId = currentUserId || currentUserMemberId;
+    if (!newMessage.trim() || !senderId || (!activeTeamId && !activeDmUserId)) return;
 
     const contentToSend = newMessage.trim();
     setNewMessage(""); // Clear immediately for snappy UX
@@ -203,27 +281,40 @@ export default function InboxPage() {
     // Clear typing timeout and broadcast typing stopped
     if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
     setIsCurrentlyTyping(false);
+    
     if (socketRef.current && socketRef.current.readyState === WebSocket.OPEN) {
-      socketRef.current.send(
-        JSON.stringify({
-          type: "typing",
-          teamId: activeTeamId,
-          authorId: currentUserMemberId,
-          authorName: currentUserName,
-          isTyping: false,
-        })
-      );
+      const isDm = activeDmUserId !== null;
+      const payload: any = {
+        type: isDm ? "dm-typing" : "typing",
+        senderId,
+        senderName: currentUserName,
+        isTyping: false,
+      };
+
+      if (isDm) {
+        payload.receiverId = activeDmUserId;
+      } else {
+        payload.teamId = activeTeamId;
+        payload.authorId = currentUserMemberId;
+        payload.authorName = currentUserName;
+      }
+
+      socketRef.current.send(JSON.stringify(payload));
     }
 
     try {
       // Send message via HTTP REST endpoint first (guarantees saving to PostgreSQL)
+      const postBody: any = { content: contentToSend };
+      if (activeDmUserId) {
+        postBody.receiverId = activeDmUserId;
+      } else {
+        postBody.teamId = activeTeamId;
+      }
+
       const res = await fetch("/api/inbox/messages", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          teamId: activeTeamId,
-          content: contentToSend,
-        }),
+        body: JSON.stringify(postBody),
       });
 
       if (res.ok) {
@@ -238,13 +329,12 @@ export default function InboxPage() {
       }
     } catch (err) {
       console.error(err);
-      // Restore input text on error
       setNewMessage(contentToSend);
       alert("Failed to deliver message. Please check your network connection.");
     }
   };
 
-  if (loading && teams.length === 0) {
+  if (loading && teams.length === 0 && users.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center py-24 space-y-4 bg-white border border-slate-100 rounded-3xl p-6 shadow-sm min-h-[500px]">
         <Loader2 className="w-10 h-10 animate-spin text-indigo-650" />
@@ -253,63 +343,114 @@ export default function InboxPage() {
     );
   }
 
-  const activeTeamName = teams.find((t) => t.id === activeTeamId)?.name || "Group Chat";
+  const activeTeamName = activeDmUserId 
+    ? (users.find(u => u.id === activeDmUserId)?.name || "Direct Message")
+    : (teams.find((t) => t.id === activeTeamId)?.name || "Group Chat");
+  
+  const activeInitials = activeTeamName.split(/\s+/).map((n) => n[0]).join("").toUpperCase().substring(0, 2);
   const typersList = Object.values(activeTypers);
 
   return (
     <div className="bg-white border border-slate-100 rounded-3xl p-0 shadow-sm flex h-[calc(100vh-180px)] overflow-hidden animate-fade-in select-none">
       
-      {/* Chats List Pane (Left) */}
+      {/* Chats & DMs Directories (Left Pane) */}
       <div className="w-80 border-r border-slate-100 flex flex-col shrink-0">
+        
         {/* Search */}
-        <div className="p-4 border-b border-slate-100">
+        <div className="p-4 border-b border-slate-100 shrink-0">
           <div className="relative">
             <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
             <input
               type="text"
-              placeholder="Search channels..."
+              placeholder="Search conversations..."
               className="w-full bg-slate-50 border border-slate-100 rounded-xl py-2 pl-9 pr-3 text-xs text-slate-655 focus:outline-none placeholder:text-slate-400"
             />
           </div>
         </div>
 
-        {/* Channels list scroll */}
-        <div className="flex-1 overflow-y-auto divide-y divide-slate-50">
-          {teams.map((team) => {
-            const isSelected = team.id === activeTeamId;
-            // Get initials
-            const initials = team.name.split(/\s+/).map((n) => n[0]).join("").toUpperCase().substring(0, 2);
+        {/* Scroll List container */}
+        <div className="flex-1 overflow-y-auto py-2 space-y-4">
+          
+          {/* Section 1: Team Channels */}
+          {teams.length > 0 && (
+            <div className="space-y-1">
+              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider px-4 mb-2">Team Channels</p>
+              {teams.map((team) => {
+                const isSelected = team.id === activeTeamId && activeDmUserId === null;
+                const initials = team.name.split(/\s+/).map((n) => n[0]).join("").toUpperCase().substring(0, 2);
 
-            return (
-              <div
-                key={team.id}
-                onClick={() => handleTeamSelect(team.id)}
-                className={cn(
-                  "p-4 cursor-pointer hover:bg-slate-50/50 flex gap-3 transition-colors text-left",
-                  isSelected ? "bg-slate-50/70 border-l-4 border-indigo-650" : ""
-                )}
-              >
-                <div className="w-10 h-10 rounded-full bg-indigo-50 text-indigo-700 font-extrabold flex items-center justify-center shrink-0">
-                  {initials}
-                </div>
-                <div className="flex-1 min-w-0 self-center">
-                  <h4 className="text-xs font-bold text-slate-800 truncate">{team.name}</h4>
-                  <p className="text-[10px] text-slate-400 font-medium truncate mt-0.5">Real-time team channel</p>
-                </div>
-              </div>
-            );
-          })}
+                return (
+                  <div
+                    key={team.id}
+                    onClick={() => handleTeamSelect(team.id)}
+                    className={cn(
+                      "mx-2 px-3 py-2 cursor-pointer hover:bg-slate-50/50 flex gap-2.5 rounded-xl transition-all text-left items-center",
+                      isSelected ? "bg-indigo-50/50 border-l-4 border-indigo-650" : ""
+                    )}
+                  >
+                    <div className={cn(
+                      "w-7 h-7 rounded-lg text-indigo-700 font-extrabold flex items-center justify-center shrink-0 text-[10px]",
+                      isSelected ? "bg-indigo-100" : "bg-slate-50"
+                    )}>
+                      {initials}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <h4 className={cn("text-xs font-bold truncate", isSelected ? "text-indigo-700" : "text-slate-700")}>
+                        {team.name}
+                      </h4>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
+          {/* Section 2: Direct Messages (DMs) */}
+          {users.length > 0 && (
+            <div className="space-y-1">
+              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider px-4 mb-2">Direct Messages (DMs)</p>
+              {users.map((dmUser) => {
+                const isSelected = dmUser.id === activeDmUserId;
+                const initials = dmUser.name.split(/\s+/).map((n) => n[0]).join("").toUpperCase().substring(0, 2);
+
+                return (
+                  <div
+                    key={dmUser.id}
+                    onClick={() => handleDmSelect(dmUser.id)}
+                    className={cn(
+                      "mx-2 px-3 py-2 cursor-pointer hover:bg-slate-50/50 flex gap-2.5 rounded-xl transition-all text-left items-center",
+                      isSelected ? "bg-indigo-50/50 border-l-4 border-indigo-650" : ""
+                    )}
+                  >
+                    <div className={cn(
+                      "w-7 h-7 rounded-full text-indigo-700 font-extrabold flex items-center justify-center shrink-0 text-[10px] relative",
+                      isSelected ? "bg-indigo-100" : "bg-indigo-50/30"
+                    )}>
+                      {initials}
+                      <span className="absolute bottom-0 right-0 w-2 h-2 bg-emerald-500 rounded-full ring-1 ring-white"></span>
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <h4 className={cn("text-xs font-bold truncate", isSelected ? "text-indigo-700" : "text-slate-750")}>
+                        {dmUser.name}
+                      </h4>
+                      <p className="text-[9px] text-slate-400 truncate font-semibold mt-0.5">{dmUser.email}</p>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </div>
       </div>
 
-      {/* Chat Container (Right) */}
+      {/* Chat Container (Right Pane) */}
       <div className="flex-1 flex flex-col bg-slate-50/10">
         
         {/* Active Header */}
         <div className="p-4 border-b border-slate-100 bg-white flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="w-9 h-9 rounded-full bg-indigo-100 text-indigo-700 font-extrabold flex items-center justify-center">
-              {activeTeamName.split(/\s+/).map((n) => n[0]).join("").toUpperCase().substring(0, 2)}
+              {activeInitials}
             </div>
             <div className="text-left">
               <h4 className="text-xs font-extrabold text-slate-855 leading-tight">{activeTeamName}</h4>
@@ -334,7 +475,8 @@ export default function InboxPage() {
             </div>
           ) : (
             messages.map((msg) => {
-              const isMine = msg.authorId === currentUserMemberId;
+              const checkId = currentUserId || currentUserMemberId;
+              const isMine = msg.authorId === checkId;
               const formattedTime = new Date(msg.createdAt).toLocaleTimeString("en-US", {
                 hour: "2-digit",
                 minute: "2-digit",
