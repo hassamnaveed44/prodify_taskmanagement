@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { Bot, Send, Sparkles, User, Lightbulb, Loader2, MessageSquare, Plus, Trash2 } from "lucide-react";
+import { Bot, Send, Sparkles, User, Lightbulb, Loader2, MessageSquare, Plus, Trash2, Menu, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const suggestions = [
@@ -29,6 +29,11 @@ export default function ProdifyAIPage() {
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [streaming, setStreaming] = useState(false);
+  
+  // Custom delete modal and mobile drawer toggles
+  const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
+  const [showMobileSidebar, setShowMobileSidebar] = useState(false);
+
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
 
   // Fetch all chat sessions for the sidebar history
@@ -59,6 +64,7 @@ export default function ProdifyAIPage() {
     if (sessionId === activeSessionId || streaming) return;
     setLoading(true);
     setActiveSessionId(sessionId);
+    setShowMobileSidebar(false); // Close mobile drawer when switching sessions
     try {
       const response = await fetch(`/api/ai/sessions/${sessionId}`, { cache: "no-store" });
       if (response.ok) {
@@ -78,22 +84,28 @@ export default function ProdifyAIPage() {
     setActiveSessionId(null);
     setMessages([]);
     setInput("");
+    setShowMobileSidebar(false); // Close mobile drawer
   };
 
-  // Delete a chat session
-  const handleDeleteSession = async (e: React.MouseEvent, sessionId: string) => {
+  // Trigger custom confirmation delete modal
+  const triggerDeleteConfirm = (e: React.MouseEvent, sessionId: string) => {
     e.stopPropagation();
     if (streaming) return;
-    
-    const confirmDelete = window.confirm("Are you sure you want to delete this chat session?");
-    if (!confirmDelete) return;
+    setDeleteConfirmId(sessionId);
+  };
+
+  // Execute actual session deletion
+  const executeDeleteSession = async () => {
+    if (!deleteConfirmId || streaming) return;
+    const targetId = deleteConfirmId;
+    setDeleteConfirmId(null);
 
     try {
-      const response = await fetch(`/api/ai/sessions/${sessionId}`, {
+      const response = await fetch(`/api/ai/sessions/${targetId}`, {
         method: "DELETE",
       });
       if (response.ok) {
-        if (activeSessionId === sessionId) {
+        if (activeSessionId === targetId) {
           handleNewChat();
         }
         fetchSessions();
@@ -227,19 +239,38 @@ export default function ProdifyAIPage() {
   const isThinking = streaming && messages[messages.length - 1]?.text === "";
 
   return (
-    <div className="bg-white border border-slate-100 rounded-3xl p-0 shadow-sm flex h-[calc(100vh-180px)] overflow-hidden animate-fade-in select-none">
+    <div className="bg-white border border-slate-100 rounded-3xl p-0 shadow-sm flex h-[calc(100vh-180px)] overflow-hidden animate-fade-in relative select-none">
       
-      {/* 1. ChatGPT-Style Left Sidebar Panel (Chat History) */}
-      <div className="w-64 border-r border-slate-100 bg-slate-50/50 flex flex-col shrink-0">
+      {/* 1. Backdrop Overlay for mobile drawer */}
+      {showMobileSidebar && (
+        <div 
+          onClick={() => setShowMobileSidebar(false)}
+          className="fixed inset-0 bg-slate-900/30 backdrop-blur-xs z-30 md:hidden animate-fade-in"
+        />
+      )}
+
+      {/* 2. Responsive Left Sidebar Panel (Chat History) */}
+      <div className={cn(
+        "border-r border-slate-100 bg-slate-50/50 flex flex-col shrink-0 transition-transform duration-300 md:relative fixed inset-y-0 left-0 z-40 w-64 md:translate-x-0 md:flex",
+        showMobileSidebar ? "translate-x-0" : "-translate-x-full md:translate-x-0"
+      )}>
         {/* New Chat Trigger Header */}
-        <div className="p-4 border-b border-slate-100 bg-white shrink-0">
+        <div className="p-4 border-b border-slate-100 bg-white flex items-center justify-between shrink-0">
           <button
             onClick={handleNewChat}
             disabled={streaming}
-            className="w-full flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white py-2.5 px-4 rounded-xl text-xs font-bold transition-all shadow-xs cursor-pointer disabled:opacity-50"
+            className="flex-1 flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white py-2.5 px-4 rounded-xl text-xs font-bold transition-all shadow-xs cursor-pointer disabled:opacity-50"
           >
             <Plus className="w-4.5 h-4.5" />
             <span>New Chat</span>
+          </button>
+          
+          {/* Close button on mobile drawer */}
+          <button
+            onClick={() => setShowMobileSidebar(false)}
+            className="md:hidden ml-2 p-2 hover:bg-slate-100 rounded-lg text-slate-500 cursor-pointer"
+          >
+            <X className="w-4.5 h-4.5" />
           </button>
         </div>
 
@@ -260,7 +291,7 @@ export default function ProdifyAIPage() {
                   key={s.id}
                   onClick={() => handleSessionSelect(s.id)}
                   className={cn(
-                    "flex items-center justify-between group p-2.5 rounded-xl cursor-pointer transition-all border border-transparent",
+                    "flex items-center justify-between group p-2.5 rounded-xl cursor-pointer transition-all border border-transparent relative",
                     isActive
                       ? "bg-white border-slate-150 shadow-xs font-bold text-slate-800"
                       : "hover:bg-slate-100/50 text-slate-500 hover:text-slate-700"
@@ -271,9 +302,9 @@ export default function ProdifyAIPage() {
                     <span className="text-xs font-bold truncate text-left">{s.title || "Untitled Conversation"}</span>
                   </div>
                   <button
-                    onClick={(e) => handleDeleteSession(e, s.id)}
+                    onClick={(e) => triggerDeleteConfirm(e, s.id)}
                     disabled={streaming}
-                    className="opacity-0 group-hover:opacity-100 hover:text-red-650 p-1 rounded transition-all text-slate-400 cursor-pointer disabled:opacity-0"
+                    className="opacity-0 group-hover:opacity-100 hover:text-red-650 p-1 rounded transition-all text-slate-400 cursor-pointer absolute right-2 bg-white md:bg-transparent"
                   >
                     <Trash2 className="w-3.5 h-3.5" />
                   </button>
@@ -284,12 +315,21 @@ export default function ProdifyAIPage() {
         </div>
       </div>
 
-      {/* 2. Right Panel (Active Conversation Container) */}
+      {/* 3. Right Panel (Active Conversation Container) */}
       <div className="flex-1 flex flex-col min-w-0 bg-white">
         
         {/* Active Chat Header */}
         <div className="p-4 border-b border-slate-100 bg-white flex items-center justify-between shrink-0">
           <div className="flex items-center gap-3">
+            
+            {/* Mobile Hamburger menu */}
+            <button
+              onClick={() => setShowMobileSidebar(true)}
+              className="md:hidden p-2 border border-slate-100 rounded-xl hover:bg-slate-50 text-slate-600 cursor-pointer flex items-center justify-center shrink-0"
+            >
+              <Menu className="w-4.5 h-4.5" />
+            </button>
+
             <div className="w-9 h-9 rounded-2xl bg-indigo-50 border border-indigo-100 text-indigo-650 flex items-center justify-center shrink-0">
               <Bot className="w-5 h-5 animate-pulse" />
             </div>
@@ -356,10 +396,10 @@ export default function ProdifyAIPage() {
                   <div
                     key={i}
                     className={cn(
-                      "flex gap-4 p-4.5 rounded-3xl text-left transition-all",
+                      "flex gap-4 p-4.5 rounded-3xl text-left transition-all relative overflow-hidden select-text",
                       isAi 
-                        ? "bg-slate-50 border border-slate-100 mr-12" 
-                        : "bg-indigo-50/50 border border-indigo-100/50 ml-12 flex-row-reverse"
+                        ? "bg-slate-50 border border-slate-100 mr-12 animate-fade-in" 
+                        : "bg-indigo-50/50 border border-indigo-100/50 ml-12 flex-row-reverse animate-fade-in"
                     )}
                   >
                     <div className={cn(
@@ -369,7 +409,7 @@ export default function ProdifyAIPage() {
                       {isAi ? <Bot className="w-4.5 h-4.5" /> : <User className="w-4.5 h-4.5" />}
                     </div>
                     <div className="space-y-1 flex-1">
-                      <span className="text-[9px] font-extrabold text-slate-400 uppercase tracking-wider block">
+                      <span className="text-[9px] font-extrabold text-slate-400 uppercase tracking-wider block select-none">
                         {isAi ? "Prodify AI" : "You"}
                       </span>
                       {isAi ? renderMessageContent(msg.text) : (
@@ -422,6 +462,43 @@ export default function ProdifyAIPage() {
           </button>
         </form>
       </div>
+
+      {/* 4. Custom Gorgeous Confirmation Modal ("Pop") */}
+      {deleteConfirmId && (
+        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center z-50 p-4 animate-fade-in">
+          <div className="bg-white rounded-3xl p-6 max-w-sm w-full shadow-2xl border border-slate-100 flex flex-col space-y-4 animate-scale-up text-left">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-2xl bg-red-50 border border-red-100 flex items-center justify-center text-red-650 shrink-0">
+                <Trash2 className="w-5 h-5" />
+              </div>
+              <div>
+                <h4 className="text-sm font-extrabold text-slate-800">Delete Conversation</h4>
+                <p className="text-[10px] text-slate-400 font-bold tracking-wide uppercase mt-0.5">Dangerous Action</p>
+              </div>
+            </div>
+            
+            <p className="text-xs font-semibold text-slate-500 leading-relaxed">
+              Are you sure you want to delete this chat session? This action is permanent and cannot be undone.
+            </p>
+            
+            <div className="flex gap-2.5 justify-end pt-2">
+              <button
+                onClick={() => setDeleteConfirmId(null)}
+                className="px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-xl transition-all cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={executeDeleteSession}
+                className="px-4 py-2.5 bg-red-600 hover:bg-red-700 text-white text-xs font-bold rounded-xl transition-all cursor-pointer"
+              >
+                Delete Permanent
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 }
