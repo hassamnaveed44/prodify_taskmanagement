@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import Sidebar from "@/components/layout/sidebar";
 import Header from "@/components/layout/header";
 import { cn } from "@/lib/utils";
@@ -28,11 +28,6 @@ interface ProjectProfile {
   color: string;
 }
 
-interface ToastNotification {
-  id: string;
-  message: string;
-}
-
 export default function DashboardLayout({
   children,
 }: Readonly<{
@@ -45,8 +40,8 @@ export default function DashboardLayout({
   const [projects, setProjects] = useState<ProjectProfile[]>([]);
   const [workspaces, setWorkspaces] = useState<any[]>([]);
   
-  // Real-time system notifications state
-  const [toasts, setToasts] = useState<ToastNotification[]>([]);
+  // Ref to track notified task deadlines to avoid spamming
+  const notifiedDeadlinesRef = useRef<Record<string, boolean>>({});
 
   // Fetch logged-in user profile details on load
   const fetchProfileData = () => {
@@ -93,18 +88,14 @@ export default function DashboardLayout({
       try {
         const packet = JSON.parse(event.data);
         if (packet.type === "notification" && packet.message) {
-          const newToast: ToastNotification = {
-            id: Math.random().toString(),
-            message: packet.message,
-          };
-          
-          // Append to toasts list
-          setToasts((prev) => [...prev, newToast]);
-
-          // Auto remove toast after 4.5 seconds
-          setTimeout(() => {
-            setToasts((prev) => prev.filter((t) => t.id !== newToast.id));
-          }, 4500);
+          toast.info(packet.message);
+        } else if (packet.type === "dm" && packet.message) {
+          if (packet.message.senderId !== user.id) {
+            const isInboxPage = window.location.pathname === "/inbox";
+            if (!isInboxPage) {
+              toast.info(`💬 Message from ${packet.message.authorName}: "${packet.message.content}"`);
+            }
+          }
         }
       } catch (err) {
         console.error("Failed to parse background live notification:", err);
@@ -114,7 +105,48 @@ export default function DashboardLayout({
     return () => {
       socket.close();
     };
-  }, [user]);
+  }, [user, workspace, toast]);
+
+  // Periodic upcoming task deadlines checker (due within 24 hours)
+  useEffect(() => {
+    if (!user || !workspace) return;
+
+    const fetchAndCheckDeadlines = async () => {
+      try {
+        const res = await fetch("/api/tasks");
+        if (!res.ok) return;
+        const data = await res.json();
+        const tasksList = data.tasks || [];
+        
+        const now = new Date();
+        tasksList.forEach((task: any) => {
+          if (task.status !== "COMPLETED" && task.dueDate) {
+            const dueDate = new Date(task.dueDate);
+            const diffTime = dueDate.getTime() - now.getTime();
+            const diffHours = diffTime / (1000 * 60 * 60);
+
+            // Trigger alert if task is due within 24 hours and is in the future
+            if (diffHours > 0 && diffHours <= 24) {
+              if (!notifiedDeadlinesRef.current[task.id]) {
+                const hoursLeft = Math.max(1, Math.round(diffHours));
+                toast.error(`⏰ Deadline warning: Task "${task.name}" is due in ${hoursLeft} hours!`);
+                notifiedDeadlinesRef.current[task.id] = true;
+              }
+            }
+          }
+        });
+      } catch (err) {
+        console.error("Failed to check task deadlines:", err);
+      }
+    };
+
+    // Run check immediately on load
+    fetchAndCheckDeadlines();
+
+    // Check deadlines every 3 minutes
+    const interval = setInterval(fetchAndCheckDeadlines, 180000);
+    return () => clearInterval(interval);
+  }, [user, workspace, toast]);
 
   // Handle Project Creation from Sidebar (Real POST API integration)
   const handleCreateProject = async (projectName: string) => {
@@ -136,9 +168,7 @@ export default function DashboardLayout({
     }
   };
 
-  const removeToast = (id: string) => {
-    setToasts((prev) => prev.filter((t) => t.id !== id));
-  };
+
 
   return (
     <div className="flex h-full w-full overflow-hidden bg-[#f6f8fb]">
@@ -195,32 +225,6 @@ export default function DashboardLayout({
             {children}
           </div>
         </main>
-      </div>
-
-      {/* Floating Real-time Notifications Container (Toaster) */}
-      <div className="fixed bottom-4 right-4 z-50 space-y-2 pointer-events-none max-w-sm w-full">
-        {toasts.map((toast) => (
-          <div 
-            key={toast.id} 
-            className="bg-slate-900/95 backdrop-blur-sm text-white border border-slate-800 rounded-2xl p-4 shadow-2xl flex items-start gap-3 animate-fade-in pointer-events-auto"
-          >
-            <div className="w-8 h-8 rounded-lg bg-indigo-500/20 flex items-center justify-center text-indigo-400 shrink-0">
-              <BellRing className="w-4.5 h-4.5 animate-bounce" />
-            </div>
-            <div className="flex-1 min-w-0 text-left pt-0.5">
-              <span className="text-[10px] font-extrabold tracking-wider uppercase text-indigo-400">Workspace Update</span>
-              <p className="text-[11px] font-semibold text-slate-100 leading-normal mt-0.5 break-words select-text">
-                {toast.message}
-              </p>
-            </div>
-            <button 
-              onClick={() => removeToast(toast.id)}
-              className="text-slate-400 hover:text-white transition-colors p-0.5"
-            >
-              <X className="w-4.5 h-4.5" />
-            </button>
-          </div>
-        ))}
       </div>
     </div>
   );
