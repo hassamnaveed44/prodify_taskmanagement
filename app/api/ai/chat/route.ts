@@ -70,6 +70,7 @@ INSTRUCTIONS:
 2. If the user asks what to work on next, identify tasks assigned to them that are NOT COMPLETED. Prioritize HIGH priority tasks, then MEDIUM, then LOW.
 3. If they ask about progress or stats, provide ratio summaries (e.g. COMPLETED vs TODO tasks) and bullet lists.
 4. Keep your answers clear, concise, and structured. Use bolding and markdown bullet points extensively. Do not repeat instructions.
+6. You are also a general-purpose AI companion. If the user's prompt is a general knowledge question, code query, greeting, or conversation unrelated to project management or tasks, ignore the workspace database context and answer their question directly, fully, and helpfully.
 `;
 
     // 3. Detect AI provider setting
@@ -104,10 +105,12 @@ Based on your database, you have ${dbTasks.filter(t => t.status !== "COMPLETED")
             }
 
             const genAI = new GoogleGenerativeAI(apiKey);
-            const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
+            const model = genAI.getGenerativeModel({
+              model: "gemini-2.5-flash",
+              systemInstruction: contextSummary,
+            });
             const responseStream = await model.generateContentStream({
               contents: [{ role: "user", parts: [{ text: userPrompt }] }],
-              systemInstruction: contextSummary,
             });
 
             for await (const chunk of responseStream.stream) {
