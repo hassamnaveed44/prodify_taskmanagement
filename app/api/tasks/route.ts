@@ -75,6 +75,22 @@ export async function POST(req: NextRequest) {
       },
     });
 
+    // Trigger real-time WebSocket warning/notification
+    if ((global as any).wss) {
+      const wss = (global as any).wss;
+      const author = payload.name || "A teammate";
+      const broadcastMsg = JSON.stringify({
+        type: "notification",
+        message: `🎉 Task "${createdTask.name}" was added to "${createdTask.project.name}" by ${author}!`,
+      });
+      wss.clients.forEach((client: any) => {
+        // Only send to clients who belong to the same active workspace
+        if (client.readyState === 1 && client.workspaceId === payload.workspaceId) {
+          client.send(broadcastMsg);
+        }
+      });
+    }
+
     return NextResponse.json({
       status: "success",
       task: {
