@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Search, Bell, HelpCircle, Menu, LogOut, ChevronDown, Loader2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
+import { useToast } from "@/components/ui/toast-provider";
 
 interface UserProfile {
   id: string;
@@ -35,6 +36,7 @@ interface HeaderProps {
 
 export default function Header({ user, workspace, workspaces, onMenuClick }: HeaderProps) {
   const router = useRouter();
+  const toast = useToast();
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [loggingOut, setLoggingOut] = useState(false);
   const [switching, setSwitching] = useState<string | null>(null);
@@ -64,11 +66,11 @@ export default function Header({ user, workspace, workspaces, onMenuClick }: Hea
       if (res.ok) {
         window.location.reload(); // Force full reload to update workspace context across layout & routes
       } else {
-        alert("Failed to switch workspace.");
+        toast.error("Failed to switch workspace.");
       }
     } catch (err) {
       console.error(err);
-      alert("An error occurred switching workspace.");
+      toast.error("An error occurred switching workspace.");
     } finally {
       setSwitching(null);
     }

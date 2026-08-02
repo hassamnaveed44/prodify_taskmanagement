@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useToast } from "@/components/ui/toast-provider";
 import { 
   Home, 
   Bot, 
@@ -60,6 +61,7 @@ interface SidebarProps {
 
 export default function Sidebar({ user, workspace, projects, onAddProject, onClose }: SidebarProps) {
   const pathname = usePathname();
+  const toast = useToast();
   
   // Custom Create Project Modal State
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -93,16 +95,18 @@ export default function Sidebar({ user, workspace, projects, onAddProject, onClo
       });
       const data = await res.json();
       if (res.ok) {
-        alert(data.message);
+        toast.success(data.message || "Invitation successfully sent!");
         setIsInviteModalOpen(false);
         setInviteEmail("");
-        window.location.reload(); // Force refresh to sync layout lists
+        setTimeout(() => {
+          window.location.reload();
+        }, 1000);
       } else {
-        alert(data.error || "Failed to invite member.");
+        toast.error(data.error || "Failed to invite member.");
       }
     } catch (err) {
       console.error(err);
-      alert("An error occurred while sending the workspace invitation.");
+      toast.error("An error occurred while sending the workspace invitation.");
     }
   };
 

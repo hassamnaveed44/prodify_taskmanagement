@@ -3,12 +3,14 @@
 import { useState, useEffect } from "react";
 import { Sparkles, MessageSquare, Plus, Link2, Loader2 } from "lucide-react";
 import TasksPanel from "@/components/dashboard/tasks-panel";
+import { useToast } from "@/components/ui/toast-provider";
 import GoalsPanel from "@/components/dashboard/goals-panel";
 import ProjectsPanel from "@/components/dashboard/projects-panel";
 import CalendarPanel from "@/components/dashboard/calendar-panel";
 import RemindersPanel from "@/components/dashboard/reminders-panel";
 
 export default function DashboardPage() {
+  const toast = useToast();
   const [userName, setUserName] = useState("Hassam");
   
   // Dashboard datasets state
@@ -89,10 +91,11 @@ export default function DashboardPage() {
         window.location.reload(); // Force full reload to update sidebar links and dashboard grid in one sync
       } else {
         const errData = await res.json();
-        alert(errData.error || "Failed to create project.");
+        toast.error(errData.error || "Failed to create project.");
       }
     } catch (error) {
       console.error("Failed to create project:", error);
+      toast.error("An unexpected error occurred while creating the project.");
     }
   };
 

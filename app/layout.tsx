@@ -2,6 +2,8 @@ import type { Metadata } from "next";
 import BrowserFrame from "@/components/layout/browser-frame";
 import "./globals.css";
 
+import { ToastProvider } from "@/components/ui/toast-provider";
+
 export const metadata: Metadata = {
   title: "Prodify — AI Workspace Dashboard",
   description: "AI-powered workspace and task management dashboard.",
@@ -24,10 +26,12 @@ export default function RootLayout({
         />
       </head>
       <body className="min-h-full font-sans antialiased text-slate-800 bg-[#f6f8fb]">
-        {/* Browser wrapper to replicate target UI presentation exactly */}
-        <BrowserFrame>
-          {children}
-        </BrowserFrame>
+        <ToastProvider>
+          {/* Browser wrapper to replicate target UI presentation exactly */}
+          <BrowserFrame>
+            {children}
+          </BrowserFrame>
+        </ToastProvider>
       </body>
     </html>
   );

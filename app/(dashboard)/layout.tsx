@@ -5,6 +5,7 @@ import Sidebar from "@/components/layout/sidebar";
 import Header from "@/components/layout/header";
 import { cn } from "@/lib/utils";
 import { BellRing, X } from "lucide-react";
+import { ToastProvider, useToast } from "@/components/ui/toast-provider";
 
 interface UserProfile {
   id: string;
@@ -37,6 +38,7 @@ export default function DashboardLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const toast = useToast();
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [user, setUser] = useState<UserProfile | null>(null);
   const [workspace, setWorkspace] = useState<WorkspaceProfile | null>(null);
@@ -126,10 +128,11 @@ export default function DashboardLayout({
         fetchProfileData(); // Reload projects lists dynamically
       } else {
         const errData = await res.json();
-        alert(errData.error || "Failed to create project.");
+        toast.error(errData.error || "Failed to create project.");
       }
     } catch (err) {
       console.error("Project creation failed:", err);
+      toast.error("An unexpected error occurred while creating the project.");
     }
   };
 
