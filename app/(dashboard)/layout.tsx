@@ -41,6 +41,7 @@ export default function DashboardLayout({
   const [user, setUser] = useState<UserProfile | null>(null);
   const [workspace, setWorkspace] = useState<WorkspaceProfile | null>(null);
   const [projects, setProjects] = useState<ProjectProfile[]>([]);
+  const [workspaces, setWorkspaces] = useState<any[]>([]);
   
   // Real-time system notifications state
   const [toasts, setToasts] = useState<ToastNotification[]>([]);
@@ -56,6 +57,7 @@ export default function DashboardLayout({
         setUser(data.user);
         setWorkspace(data.workspace);
         setProjects(data.projects || []);
+        setWorkspaces(data.workspaces || []);
       })
       .catch((err) => {
         console.error("Error loading user profile in layout:", err);
@@ -180,6 +182,7 @@ export default function DashboardLayout({
         <Header 
           user={user} 
           workspace={workspace} 
+          workspaces={workspaces}
           onMenuClick={() => setIsSidebarOpen(true)} 
         />
 

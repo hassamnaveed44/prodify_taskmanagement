@@ -7,7 +7,7 @@ function getInitials(name: string): string {
   const parts = name.trim().split(/\s+/);
   if (parts.length === 0 || !parts[0]) return "U";
   if (parts.length === 1) return parts[0].substring(0, 2).toUpperCase();
-  return (parts[0][0]! + parts[parts.length - 1]![0]!).toUpperCase();
+  return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
 }
 
 export async function GET(req: NextRequest) {
@@ -29,7 +29,7 @@ export async function GET(req: NextRequest) {
       );
     }
 
-    // Fetch the workspace details
+    // Fetch the current active workspace details
     const workspace = await db.workspace.findUnique({
       where: { id: payload.workspaceId },
     });
@@ -54,6 +54,19 @@ export async function GET(req: NextRequest) {
             : "bg-purple-500", // Fallback color
     }));
 
+    // Fetch all workspaces this user is a member of (invitations/switches)
+    const memberships = await db.workspaceMember.findMany({
+      where: { userId: payload.userId },
+      include: { workspace: true },
+    });
+
+    const userWorkspaces = memberships.map((m) => ({
+      id: m.workspace.id,
+      name: m.workspace.name,
+      slug: m.workspace.slug,
+      role: m.role,
+    }));
+
     return NextResponse.json({
       status: "success",
       user: {
@@ -69,6 +82,7 @@ export async function GET(req: NextRequest) {
         role: payload.role,
       },
       projects: sidebarProjects,
+      workspaces: userWorkspaces, // Include all workspaces they can switch to
     });
   } catch (error) {
     console.error("GET /api/auth/me failed:", error);

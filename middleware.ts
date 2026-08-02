@@ -33,7 +33,8 @@ const authPaths = ["/login", "/register"];
 export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
-  const isProtected = protectedPaths.some(path => pathname.startsWith(path));
+  const isProtected = protectedPaths.some(path => pathname.startsWith(path)) ||
+                      (pathname.startsWith("/api/") && !pathname.startsWith("/api/auth/") && !pathname.startsWith("/api/ping"));
   const isAuthPage = authPaths.some(path => pathname.startsWith(path));
 
   // Extract cookies
