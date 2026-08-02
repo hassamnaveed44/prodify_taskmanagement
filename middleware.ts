@@ -2,6 +2,38 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { jwtVerify } from "jose";
 
+// ─── Rate Limiter ────────────────────────────────────────────────────────────
+// Simple in-memory store: Map<ip, { count, resetAt }>
+const rateLimitStore = new Map<string, { count: number; resetAt: number }>();
+
+const RATE_LIMITS: Record<string, { max: number; windowMs: number }> = {
+  "/api/auth/login":    { max: 10, windowMs: 60_000 },
+  "/api/auth/register": { max: 5,  windowMs: 60_000 },
+  "/api/ai/chat":       { max: 20, windowMs: 60_000 },
+};
+
+function checkRateLimit(ip: string, pathname: string): { limited: boolean; retryAfter?: number } {
+  const rule = Object.entries(RATE_LIMITS).find(([path]) => pathname.startsWith(path));
+  if (!rule) return { limited: false };
+
+  const [, { max, windowMs }] = rule;
+  const key = `${ip}:${pathname}`;
+  const now = Date.now();
+  const entry = rateLimitStore.get(key);
+
+  if (!entry || now > entry.resetAt) {
+    rateLimitStore.set(key, { count: 1, resetAt: now + windowMs });
+    return { limited: false };
+  }
+
+  if (entry.count >= max) {
+    return { limited: true, retryAfter: Math.ceil((entry.resetAt - now) / 1000) };
+  }
+
+  entry.count++;
+  return { limited: false };
+}
+
 // Edge-compatible JWT verification matching lib/auth.ts
 async function verifyAccessToken(token: string): Promise<boolean> {
   try {
@@ -32,6 +64,24 @@ const authPaths = ["/login", "/register"];
 
 export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
+
+  // ─── Rate Limiting ──────────────────────────────────────────────────────────
+  const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
+              req.headers.get("x-real-ip") || "127.0.0.1";
+  const { limited, retryAfter } = checkRateLimit(ip, pathname);
+  if (limited) {
+    return new NextResponse(
+      JSON.stringify({ error: "Too many requests. Please slow down.", retryAfter }),
+      {
+        status: 429,
+        headers: {
+          "Content-Type": "application/json",
+          "Retry-After": String(retryAfter),
+          "X-RateLimit-Limit": "exceeded",
+        },
+      }
+    );
+  }
 
   const isProtected = protectedPaths.some(path => pathname.startsWith(path)) ||
                       pathname === "/api/auth/me" ||

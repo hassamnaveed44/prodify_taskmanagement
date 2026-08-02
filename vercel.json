@@ -1,0 +1,15 @@
+{
+  "buildCommand": "npm run build",
+  "outputDirectory": ".next",
+  "framework": "nextjs",
+  "installCommand": "npm install",
+  "rewrites": [
+    {
+      "source": "/ws/:path*",
+      "destination": "https://prodify-websocket.onrender.com/:path*"
+    }
+  ],
+  "env": {
+    "NODE_ENV": "production"
+  }
+}
