@@ -85,20 +85,20 @@ export default function TasksPanel({ tasks, onStatusChange }: TasksPanelProps) {
   const tasksCompleted = tasks.filter(t => t.status === "COMPLETED");
 
   return (
-    <div className="bg-white border border-slate-100 rounded-3xl p-6 shadow-sm flex flex-col select-none">
+    <div className="bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-3xl p-6 shadow-sm flex flex-col select-none">
       {/* Header */}
-      <div className="flex items-center justify-between pb-6 border-b border-slate-50">
+      <div className="flex items-center justify-between pb-6 border-b border-slate-50 dark:border-slate-800">
         <div className="flex items-center gap-3">
-          <div className="w-8 h-8 rounded-lg bg-indigo-50 flex items-center justify-center text-indigo-600">
+          <div className="w-8 h-8 rounded-lg bg-indigo-50 dark:bg-indigo-950/50 flex items-center justify-center text-indigo-600 dark:text-indigo-400">
             <CheckSquare className="w-4 h-4" />
           </div>
-          <h3 className="font-semibold text-slate-800 text-base">My Tasks</h3>
+          <h3 className="font-semibold text-slate-800 dark:text-slate-100 text-base">My Tasks</h3>
         </div>
         <div className="flex items-center gap-2">
-          <button className="text-slate-400 hover:text-slate-650 transition-colors p-1.5 rounded hover:bg-slate-50">
+          <button className="text-slate-400 hover:text-slate-650 dark:hover:text-slate-200 transition-colors p-1.5 rounded hover:bg-slate-50 dark:hover:bg-slate-800/50">
             <Settings className="w-4.5 h-4.5" />
           </button>
-          <button className="text-slate-400 hover:text-slate-650 transition-colors p-1.5 rounded hover:bg-slate-50">
+          <button className="text-slate-400 hover:text-slate-650 dark:hover:text-slate-200 transition-colors p-1.5 rounded hover:bg-slate-50 dark:hover:bg-slate-800/50">
             <MoreHorizontal className="w-4.5 h-4.5" />
           </button>
         </div>
@@ -130,14 +130,14 @@ export default function TasksPanel({ tasks, onStatusChange }: TasksPanelProps) {
                 tasksInProgress.map((task) => {
                   const dateInfo = getDueDateLabel(task.dueDate, task.status);
                   return (
-                    <div key={task.id} className="flex items-center justify-between py-2 border-b border-slate-50 last:border-b-0 hover:bg-slate-50/50 rounded-xl px-2 transition-colors -mx-2">
+                    <div key={task.id} className="flex items-center justify-between py-2 border-b border-slate-50 dark:border-slate-800 last:border-b-0 hover:bg-slate-50/50 dark:hover:bg-slate-800/30 rounded-xl px-2 transition-colors -mx-2">
                       <div className="flex items-center gap-3">
                         <Circle 
                           onClick={() => onStatusChange && onStatusChange(task.id, "COMPLETED")}
                           className="w-4 h-4 text-slate-350 cursor-pointer hover:text-emerald-500 hover:scale-105 transition-all shrink-0" 
                         />
                         <div className="flex flex-col text-left">
-                          <span className="text-sm font-semibold text-slate-700 select-none line-clamp-1">{task.name}</span>
+                          <span className="text-sm font-semibold text-slate-700 dark:text-slate-200 select-none line-clamp-1">{task.name}</span>
                           <span className="text-[9px] font-bold text-indigo-500 uppercase tracking-wide mt-0.5">{task.projectName}</span>
                         </div>
                       </div>
@@ -178,14 +178,14 @@ export default function TasksPanel({ tasks, onStatusChange }: TasksPanelProps) {
                 tasksTodo.map((task) => {
                   const dateInfo = getDueDateLabel(task.dueDate, task.status);
                   return (
-                    <div key={task.id} className="flex items-center justify-between py-2 border-b border-slate-50 last:border-b-0 hover:bg-slate-50/50 rounded-xl px-2 transition-colors -mx-2">
+                    <div key={task.id} className="flex items-center justify-between py-2 border-b border-slate-50 dark:border-slate-800 last:border-b-0 hover:bg-slate-50/50 dark:hover:bg-slate-800/30 rounded-xl px-2 transition-colors -mx-2">
                       <div className="flex items-center gap-3">
                         <Circle 
                           onClick={() => onStatusChange && onStatusChange(task.id, "IN_PROGRESS")}
                           className="w-4 h-4 text-slate-350 cursor-pointer hover:text-indigo-650 hover:scale-105 transition-all shrink-0" 
                         />
                         <div className="flex flex-col text-left">
-                          <span className="text-sm font-semibold text-slate-700 select-none line-clamp-1">{task.name}</span>
+                          <span className="text-sm font-semibold text-slate-700 dark:text-slate-200 select-none line-clamp-1">{task.name}</span>
                           <span className="text-[9px] font-bold text-indigo-500 uppercase tracking-wide mt-0.5">{task.projectName}</span>
                         </div>
                       </div>
@@ -224,14 +224,14 @@ export default function TasksPanel({ tasks, onStatusChange }: TasksPanelProps) {
                 {tasksUpcoming.map((task) => {
                   const dateInfo = getDueDateLabel(task.dueDate, task.status);
                   return (
-                    <div key={task.id} className="flex items-center justify-between py-2 border-b border-slate-50 last:border-b-0 hover:bg-slate-50/50 rounded-xl px-2 transition-colors -mx-2">
+                    <div key={task.id} className="flex items-center justify-between py-2 border-b border-slate-50 dark:border-slate-800 last:border-b-0 hover:bg-slate-50/50 dark:hover:bg-slate-800/30 rounded-xl px-2 transition-colors -mx-2">
                       <div className="flex items-center gap-3">
                         <Circle 
                           onClick={() => onStatusChange && onStatusChange(task.id, "IN_PROGRESS")}
                           className="w-4 h-4 text-slate-350 cursor-pointer hover:text-indigo-650 hover:scale-105 transition-all shrink-0" 
                         />
                         <div className="flex flex-col text-left">
-                          <span className="text-sm font-semibold text-slate-700 select-none line-clamp-1">{task.name}</span>
+                          <span className="text-sm font-semibold text-slate-700 dark:text-slate-200 select-none line-clamp-1">{task.name}</span>
                           <span className="text-[9px] font-bold text-indigo-500 uppercase tracking-wide mt-0.5">{task.projectName}</span>
                         </div>
                       </div>
@@ -270,14 +270,14 @@ export default function TasksPanel({ tasks, onStatusChange }: TasksPanelProps) {
                 {tasksCompleted.map((task) => {
                   const dateInfo = getDueDateLabel(task.dueDate, task.status);
                   return (
-                    <div key={task.id} className="flex items-center justify-between py-2 border-b border-slate-50 last:border-b-0 hover:bg-slate-50/50 rounded-xl px-2 transition-colors -mx-2">
+                    <div key={task.id} className="flex items-center justify-between py-2 border-b border-slate-50 dark:border-slate-800 last:border-b-0 hover:bg-slate-50/50 dark:hover:bg-slate-800/30 rounded-xl px-2 transition-colors -mx-2">
                       <div className="flex items-center gap-3">
                         <CheckCircle2 
                           onClick={() => onStatusChange && onStatusChange(task.id, "IN_PROGRESS")}
                           className="w-4 h-4 text-emerald-500 cursor-pointer hover:text-indigo-650 hover:scale-105 transition-all shrink-0" 
                         />
                         <div className="flex flex-col text-left">
-                          <span className="text-sm font-semibold text-slate-500 line-through select-none line-clamp-1">{task.name}</span>
+                          <span className="text-sm font-semibold text-slate-550 dark:text-slate-400 line-through select-none line-clamp-1">{task.name}</span>
                           <span className="text-[9px] font-bold text-indigo-500 uppercase tracking-wide mt-0.5">{task.projectName}</span>
                         </div>
                       </div>
