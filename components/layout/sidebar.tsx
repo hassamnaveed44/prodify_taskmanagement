@@ -64,6 +64,10 @@ export default function Sidebar({ user, workspace, projects, onAddProject, onClo
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [newProjectName, setNewProjectName] = useState("");
 
+  // Custom Workspace Invite Modal State
+  const [isInviteModalOpen, setIsInviteModalOpen] = useState(false);
+  const [inviteEmail, setInviteEmail] = useState("");
+
   const handleLinkClick = () => {
     if (onClose) {
       onClose();
@@ -75,6 +79,29 @@ export default function Sidebar({ user, workspace, projects, onAddProject, onClo
       onAddProject(newProjectName.trim());
       setNewProjectName("");
       setIsModalOpen(false);
+    }
+  };
+
+  const handleInviteConfirm = async () => {
+    if (!inviteEmail.trim()) return;
+    try {
+      const res = await fetch("/api/workspace/members", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: inviteEmail.trim() }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        alert(data.message);
+        setIsInviteModalOpen(false);
+        setInviteEmail("");
+        window.location.reload(); // Force refresh to sync layout lists
+      } else {
+        alert(data.error || "Failed to invite member.");
+      }
+    } catch (err) {
+      console.error(err);
+      alert("An error occurred while sending the workspace invitation.");
     }
   };
 
@@ -204,7 +231,10 @@ export default function Sidebar({ user, workspace, projects, onAddProject, onClo
           <p className="text-[9px] text-white/70 leading-normal mb-3.5 z-10 relative">
             New members will gain access to public Spaces, Docs and Dashboards.
           </p>
-          <button className="w-full bg-white text-indigo-600 font-extrabold text-[10px] py-1.5 px-3 rounded-xl shadow-xs hover:bg-slate-50 hover:scale-[1.02] active:scale-[0.98] transition-all duration-150 z-10 relative flex items-center justify-center gap-1 cursor-pointer">
+          <button 
+            onClick={() => setIsInviteModalOpen(true)}
+            className="w-full bg-white text-indigo-600 font-extrabold text-[10px] py-1.5 px-3 rounded-xl shadow-xs hover:bg-slate-50 hover:scale-[1.02] active:scale-[0.98] transition-all duration-150 z-10 relative flex items-center justify-center gap-1 cursor-pointer"
+          >
             <Plus className="w-3 h-3 text-indigo-600" /> Invite people
           </button>
         </div>
@@ -241,6 +271,46 @@ export default function Sidebar({ user, workspace, projects, onAddProject, onClo
                 className="bg-indigo-600 text-white text-xs font-extrabold px-4.5 py-2.5 rounded-xl hover:bg-indigo-700 transition-colors shadow-sm cursor-pointer"
               >
                 Create Project
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Custom Workspace Invite Modal Popup */}
+      {isInviteModalOpen && (
+        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center z-50 p-4">
+          <div className="bg-white border border-slate-100 rounded-3xl p-6 shadow-2xl max-w-sm w-full space-y-4 animate-fade-in">
+            <h3 className="font-extrabold text-slate-800 text-sm tracking-tight uppercase text-left">Invite to Workspace</h3>
+            <p className="text-[11px] text-slate-400 font-semibold leading-relaxed text-left">
+              Type the email of the registered user you wish to invite to this workspace. They will automatically join all projects and chat channels.
+            </p>
+            <div className="space-y-1.5 text-left">
+              <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block px-1">Email Address</label>
+              <input 
+                type="email" 
+                value={inviteEmail}
+                onChange={(e) => setInviteEmail(e.target.value)}
+                placeholder="e.g. amir@prodify.com"
+                className="w-full text-xs font-semibold text-slate-700 bg-slate-50 border border-slate-100 rounded-2xl py-3 px-4 outline-none focus:bg-white focus:border-indigo-500 focus:ring-1 focus:ring-indigo-100 transition-all"
+                autoFocus
+              />
+            </div>
+            <div className="flex items-center justify-end gap-2.5 pt-2">
+              <button 
+                onClick={() => {
+                  setIsInviteModalOpen(false);
+                  setInviteEmail("");
+                }}
+                className="text-xs font-bold text-slate-400 hover:text-slate-700 px-4 py-2 cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button 
+                onClick={handleInviteConfirm}
+                className="bg-indigo-600 text-white text-xs font-extrabold px-4.5 py-2.5 rounded-xl hover:bg-indigo-700 transition-colors shadow-sm cursor-pointer"
+              >
+                Send Invite
               </button>
             </div>
           </div>
