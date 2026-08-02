@@ -20,16 +20,16 @@ const reminders = [
 
 export default function RemindersPanel() {
   return (
-    <div className="bg-white border border-slate-100 rounded-3xl p-6 shadow-sm flex flex-col h-full">
+    <div className="bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-3xl p-6 shadow-sm flex flex-col h-full">
       {/* Header */}
-      <div className="flex items-center justify-between pb-6 border-b border-slate-50 mb-4">
+      <div className="flex items-center justify-between pb-6 border-b border-slate-50 dark:border-slate-800 mb-4">
         <div className="flex items-center gap-3">
-          <div className="w-8 h-8 rounded-lg bg-indigo-50 flex items-center justify-center text-indigo-600">
+          <div className="w-8 h-8 rounded-lg bg-indigo-50 dark:bg-indigo-950/50 flex items-center justify-center text-indigo-600 dark:text-indigo-400">
             <BellRing className="w-4 h-4" />
           </div>
-          <h3 className="font-semibold text-slate-800 text-base">Reminders</h3>
+          <h3 className="font-semibold text-slate-800 dark:text-slate-100 text-base">Reminders</h3>
         </div>
-        <button className="text-slate-400 hover:text-slate-650 transition-colors p-1.5 rounded hover:bg-slate-55">
+        <button className="text-slate-400 hover:text-slate-650 dark:hover:text-slate-200 transition-colors p-1.5 rounded hover:bg-slate-55 dark:hover:bg-slate-800/50">
           <MoreHorizontal className="w-4.5 h-4.5" />
         </button>
       </div>
@@ -46,21 +46,21 @@ export default function RemindersPanel() {
         {reminders.map((reminder) => (
           <div 
             key={reminder.id} 
-            className="flex items-start justify-between gap-3 p-3 bg-slate-50/20 hover:bg-slate-50/70 border border-slate-50 rounded-2xl group transition-all duration-300"
+            className="flex items-start justify-between gap-3 p-3 bg-slate-50/20 dark:bg-slate-800/10 hover:bg-slate-50/70 dark:hover:bg-slate-800/30 border border-slate-50 dark:border-slate-800 rounded-2xl group transition-all duration-300"
           >
             <div className="flex items-start gap-3">
               {/* Left Indicator Dot */}
               <span className={cn("w-2 h-2 rounded-full mt-1.5 shrink-0 animate-pulse", reminder.color)} />
               <div>
-                <p className="text-xs font-medium text-slate-650 leading-relaxed group-hover:text-slate-850 transition-colors select-none">
+                <p className="text-xs font-medium text-slate-650 dark:text-slate-300 leading-relaxed group-hover:text-slate-850 dark:group-hover:text-slate-100 transition-colors select-none">
                   {reminder.text}
                 </p>
               </div>
             </div>
 
             {/* Actions button */}
-            <button className="text-slate-350 hover:text-slate-600 transition-colors p-1 opacity-0 group-hover:opacity-100 rounded hover:bg-white shrink-0">
-              <MoreHorizontal className="w-4 h-4" />
+            <button className="text-slate-350 hover:text-slate-600 dark:hover:text-slate-200 transition-colors p-1 opacity-0 group-hover:opacity-100 rounded hover:bg-white dark:hover:bg-slate-800 shrink-0">
+              <MoreHorizontal className="w-4.5 h-4.5" />
             </button>
           </div>
         ))}

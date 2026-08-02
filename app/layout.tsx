@@ -2,6 +2,8 @@ import type { Metadata } from "next";
 import BrowserFrame from "@/components/layout/browser-frame";
 import "./globals.css";
 
+import { ToastProvider } from "@/components/ui/toast-provider";
+
 export const metadata: Metadata = {
   title: "Prodify — AI Workspace Dashboard",
   description: "AI-powered workspace and task management dashboard.",
@@ -22,12 +24,28 @@ export default function RootLayout({
           href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap" 
           rel="stylesheet" 
         />
+        {/* Theme loader script to prevent flash */}
+        <script dangerouslySetInnerHTML={{ __html: `
+          (function() {
+            try {
+              var savedTheme = localStorage.getItem('theme');
+              var systemPrefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+              if (savedTheme === 'dark' || (!savedTheme && systemPrefersDark)) {
+                document.documentElement.classList.add('dark');
+              } else {
+                document.documentElement.classList.remove('dark');
+              }
+            } catch (e) {}
+          })()
+        ` }} />
       </head>
       <body className="min-h-full font-sans antialiased text-slate-800 bg-[#f6f8fb]">
-        {/* Browser wrapper to replicate target UI presentation exactly */}
-        <BrowserFrame>
-          {children}
-        </BrowserFrame>
+        <ToastProvider>
+          {/* Browser wrapper to replicate target UI presentation exactly */}
+          <BrowserFrame>
+            {children}
+          </BrowserFrame>
+        </ToastProvider>
       </body>
     </html>
   );

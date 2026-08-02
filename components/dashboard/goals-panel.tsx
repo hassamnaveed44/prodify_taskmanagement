@@ -16,16 +16,16 @@ interface GoalsPanelProps {
 
 export default function GoalsPanel({ goals }: GoalsPanelProps) {
   return (
-    <div className="bg-white border border-slate-100 rounded-3xl p-6 shadow-sm flex flex-col select-none">
+    <div className="bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-3xl p-6 shadow-sm flex flex-col select-none">
       {/* Header */}
-      <div className="flex items-center justify-between pb-6 border-b border-slate-50">
+      <div className="flex items-center justify-between pb-6 border-b border-slate-50 dark:border-slate-800">
         <div className="flex items-center gap-3">
-          <div className="w-8 h-8 rounded-lg bg-indigo-50 flex items-center justify-center text-indigo-600">
+          <div className="w-8 h-8 rounded-lg bg-indigo-50 dark:bg-indigo-950/50 flex items-center justify-center text-indigo-600 dark:text-indigo-400">
             <Target className="w-4 h-4" />
           </div>
-          <h3 className="font-semibold text-slate-800 text-base">My Goals</h3>
+          <h3 className="font-semibold text-slate-800 dark:text-slate-100 text-base">My Goals</h3>
         </div>
-        <button className="text-slate-400 hover:text-slate-650 transition-colors p-1.5 rounded hover:bg-slate-50">
+        <button className="text-slate-400 hover:text-slate-650 dark:hover:text-slate-200 transition-colors p-1.5 rounded hover:bg-slate-50 dark:hover:bg-slate-800/50">
           <MoreHorizontal className="w-4.5 h-4.5" />
         </button>
       </div>
@@ -41,20 +41,19 @@ export default function GoalsPanel({ goals }: GoalsPanelProps) {
               <div key={goal.id} className="space-y-2">
                 <div className="flex items-start justify-between">
                   <div>
-                    <h4 className="text-sm font-semibold text-slate-800 leading-snug hover:text-indigo-650 transition-colors cursor-pointer text-left">
+                    <h4 className="text-sm font-semibold text-slate-800 dark:text-slate-100 leading-snug hover:text-indigo-650 dark:hover:text-indigo-400 transition-colors cursor-pointer text-left">
                       {goal.title}
                     </h4>
-                    <p className="text-xs text-slate-400 font-medium mt-0.5 text-left">
+                    <p className="text-xs text-slate-400 dark:text-slate-500 font-medium mt-0.5 text-left">
                       {goal.projectName} <span className="mx-1">•</span> My Projects
                     </p>
                   </div>
-                  <span className="text-xs font-bold text-slate-800 shrink-0 ml-4">
+                  <span className="text-xs font-bold text-slate-800 dark:text-slate-100 shrink-0 ml-4">
                     {goal.percentage}%
                   </span>
                 </div>
-
                 {/* Custom Progress Bar */}
-                <div className="w-full bg-slate-150/50 rounded-full h-1.5 overflow-hidden">
+                <div className="w-full bg-slate-150/50 dark:bg-slate-800 rounded-full h-1.5 overflow-hidden">
                   <div 
                     className={cn("h-full rounded-full transition-all duration-500", barColor)} 
                     style={{ width: `${goal.percentage}%` }}

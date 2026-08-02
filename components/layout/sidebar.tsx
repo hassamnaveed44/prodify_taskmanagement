@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useToast } from "@/components/ui/toast-provider";
 import { 
   Home, 
   Bot, 
@@ -60,6 +61,7 @@ interface SidebarProps {
 
 export default function Sidebar({ user, workspace, projects, onAddProject, onClose }: SidebarProps) {
   const pathname = usePathname();
+  const toast = useToast();
   
   // Custom Create Project Modal State
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -93,21 +95,23 @@ export default function Sidebar({ user, workspace, projects, onAddProject, onClo
       });
       const data = await res.json();
       if (res.ok) {
-        alert(data.message);
+        toast.success(data.message || "Invitation successfully sent!");
         setIsInviteModalOpen(false);
         setInviteEmail("");
-        window.location.reload(); // Force refresh to sync layout lists
+        setTimeout(() => {
+          window.location.reload();
+        }, 1000);
       } else {
-        alert(data.error || "Failed to invite member.");
+        toast.error(data.error || "Failed to invite member.");
       }
     } catch (err) {
       console.error(err);
-      alert("An error occurred while sending the workspace invitation.");
+      toast.error("An error occurred while sending the workspace invitation.");
     }
   };
 
   return (
-    <aside className="w-64 border-r border-slate-100 bg-white flex flex-col h-full py-4 px-5 select-none overflow-hidden shrink-0 relative justify-between">
+    <aside className="w-64 border-r border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 flex flex-col h-full py-4 px-5 select-none overflow-hidden shrink-0 relative justify-between">
       {/* Mobile Close Button */}
       {onClose && (
         <button 
@@ -122,17 +126,17 @@ export default function Sidebar({ user, workspace, projects, onAddProject, onClo
       <div className="flex-1 overflow-y-auto space-y-4 pr-1 min-h-0 select-none scrollbar-none">
         
         {/* 1. User Profile Card */}
-        <div className="flex items-center justify-between p-2 hover:bg-slate-50 rounded-2xl cursor-pointer transition-colors border border-slate-100/50 shadow-xs bg-slate-50/20">
+        <div className="flex items-center justify-between p-2 hover:bg-slate-50 dark:hover:bg-slate-800/40 rounded-2xl cursor-pointer transition-colors border border-slate-100/50 dark:border-slate-800 shadow-xs bg-slate-50/20 dark:bg-slate-800/20">
           <div className="flex items-center gap-2.5">
             <div className="w-9 h-9 rounded-full bg-indigo-600 text-white font-extrabold text-xs flex items-center justify-center shadow-sm shrink-0 relative">
               {user?.initials || "HN"}
-              <span className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-emerald-500 rounded-full ring-2 ring-white"></span>
+              <span className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-emerald-500 rounded-full ring-2 ring-white dark:ring-slate-900"></span>
             </div>
             <div className="text-left">
-              <h4 className="font-extrabold text-slate-800 text-[11px] leading-tight tracking-tight truncate max-w-[120px]">
+              <h4 className="font-extrabold text-slate-800 dark:text-slate-200 text-[11px] leading-tight tracking-tight truncate max-w-[120px]">
                 {user?.name || "Hassam Naveed"}
               </h4>
-              <p className="text-[9px] text-slate-400 font-bold uppercase tracking-wider mt-0.5">Online</p>
+              <p className="text-[9px] text-slate-400 dark:text-slate-500 font-bold uppercase tracking-wider mt-0.5">Online</p>
             </div>
           </div>
           <ChevronDown className="w-3.5 h-3.5 text-slate-400 shrink-0" />
@@ -152,20 +156,20 @@ export default function Sidebar({ user, workspace, projects, onAddProject, onClo
                 className={cn(
                   "flex items-center gap-3 px-3 py-2 rounded-xl text-xs font-bold transition-all duration-150 select-none",
                   isActive 
-                    ? "bg-indigo-50/70 text-indigo-600" 
-                    : "text-slate-555 hover:bg-slate-50/60 hover:text-slate-850"
+                    ? "bg-indigo-50/70 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400" 
+                    : "text-slate-555 dark:text-slate-400 hover:bg-slate-50/60 dark:hover:bg-slate-800/40 hover:text-slate-850 dark:hover:text-slate-200"
                 )}
               >
-                <Icon className={cn("w-4.5 h-4.5 shrink-0", isActive ? "text-indigo-600" : "text-slate-455")} />
+                <Icon className={cn("w-4.5 h-4.5 shrink-0", isActive ? "text-indigo-600 dark:text-indigo-400" : "text-slate-455 dark:text-slate-500")} />
                 <span>{item.name}</span>
-                {isActive && <ChevronRight className="w-3.5 h-3.5 ml-auto text-indigo-600 shrink-0" />}
+                {isActive && <ChevronRight className="w-3.5 h-3.5 ml-auto text-indigo-600 dark:text-indigo-400 shrink-0" />}
               </Link>
             );
           })}
         </nav>
 
         {/* Thin Divider */}
-        <div className="border-t border-slate-100" />
+        <div className="border-t border-slate-100 dark:border-slate-800" />
 
         {/* 3. Projects Category */}
         <div className="space-y-1.5">
@@ -190,7 +194,7 @@ export default function Sidebar({ user, workspace, projects, onAddProject, onClo
                     key={project.id}
                     href={projectPath}
                     onClick={handleLinkClick}
-                    className="flex items-center gap-3 px-3 py-2 rounded-xl text-xs font-bold text-slate-555 hover:bg-slate-50/50 hover:text-slate-800 transition-all duration-150"
+                    className="flex items-center gap-3 px-3 py-2 rounded-xl text-xs font-bold text-slate-555 dark:text-slate-400 hover:bg-slate-50/50 dark:hover:bg-slate-800/40 hover:text-slate-800 dark:hover:text-slate-200 transition-all duration-150"
                   >
                     <span className={cn("w-2 h-2 rounded-full shrink-0", project.color)} />
                     <span className="truncate">{project.name}</span>
@@ -202,7 +206,7 @@ export default function Sidebar({ user, workspace, projects, onAddProject, onClo
         </div>
 
         {/* Thin Divider */}
-        <div className="border-t border-slate-100" />
+        <div className="border-t border-slate-100 dark:border-slate-800" />
 
         {/* 4. Settings Link */}
         <div>
@@ -212,19 +216,19 @@ export default function Sidebar({ user, workspace, projects, onAddProject, onClo
             className={cn(
               "flex items-center gap-3 px-3 py-2 rounded-xl text-xs font-bold transition-all duration-150 select-none",
               pathname === "/settings"
-                ? "bg-indigo-50/70 text-indigo-600"
-                : "text-slate-555 hover:bg-slate-50/60 hover:text-slate-800"
+                ? "bg-indigo-50/70 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400"
+                : "text-slate-555 dark:text-slate-400 hover:bg-slate-50/60 dark:hover:bg-slate-800/40 hover:text-slate-800 dark:hover:text-slate-200"
             )}
           >
-            <Settings className={cn("w-4.5 h-4.5 shrink-0", pathname === "/settings" ? "text-indigo-600" : "text-slate-455")} />
+            <Settings className={cn("w-4.5 h-4.5 shrink-0", pathname === "/settings" ? "text-indigo-600 dark:text-indigo-400" : "text-slate-455 dark:text-slate-500")} />
             <span>Settings</span>
-            {pathname === "/settings" && <ChevronRight className="w-3.5 h-3.5 ml-auto text-indigo-600 shrink-0" />}
+            {pathname === "/settings" && <ChevronRight className="w-3.5 h-3.5 ml-auto text-indigo-600 dark:text-indigo-400 shrink-0" />}
           </Link>
         </div>
       </div>
 
       {/* 5. Pinned Invite Card (Permanently fixed at the bottom outside scroll container) */}
-      <div className="pt-4 border-t border-slate-100 shrink-0 mt-auto">
+      <div className="pt-4 border-t border-slate-100 dark:border-slate-800 shrink-0 mt-auto">
         <div className="bg-gradient-to-br from-indigo-500 to-purple-650 rounded-2xl p-4 text-white shadow-md relative overflow-hidden select-none">
           <div className="absolute top-0 right-0 w-20 h-20 bg-white/10 rounded-full blur-xl translate-x-4 -translate-y-4"></div>
           <h3 className="font-extrabold text-xs mb-1 z-10 relative flex items-center gap-1">
@@ -245,16 +249,16 @@ export default function Sidebar({ user, workspace, projects, onAddProject, onClo
       {/* Custom Create Project Modal Popup */}
       {isModalOpen && (
         <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center z-50 p-4">
-          <div className="bg-white border border-slate-100 rounded-3xl p-6 shadow-2xl max-w-sm w-full space-y-4 animate-fade-in animate-scale-up">
-            <h3 className="font-extrabold text-slate-800 text-sm tracking-tight uppercase text-left">Create New Project</h3>
+          <div className="bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-3xl p-6 shadow-2xl max-w-sm w-full space-y-4 animate-fade-in animate-scale-up">
+            <h3 className="font-extrabold text-slate-800 dark:text-slate-100 text-sm tracking-tight uppercase text-left">Create New Project</h3>
             <div className="space-y-1.5 text-left">
-              <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block px-1">Project Name</label>
+              <label className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider block px-1">Project Name</label>
               <input 
                 type="text" 
                 value={newProjectName}
                 onChange={(e) => setNewProjectName(e.target.value)}
                 placeholder="e.g. Mobile Application"
-                className="w-full text-xs font-semibold text-slate-700 bg-slate-50 border border-slate-100 rounded-2xl py-3 px-4 outline-none focus:bg-white focus:border-indigo-500 focus:ring-1 focus:ring-indigo-100 transition-all"
+                className="w-full text-xs font-semibold text-slate-700 dark:text-slate-200 bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-2xl py-3 px-4 outline-none focus:bg-white dark:focus:bg-slate-900 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-100 transition-all"
                 autoFocus
               />
             </div>
@@ -282,19 +286,19 @@ export default function Sidebar({ user, workspace, projects, onAddProject, onClo
       {/* Custom Workspace Invite Modal Popup */}
       {isInviteModalOpen && (
         <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center z-50 p-4">
-          <div className="bg-white border border-slate-100 rounded-3xl p-6 shadow-2xl max-w-sm w-full space-y-4 animate-fade-in animate-scale-up">
-            <h3 className="font-extrabold text-slate-800 text-sm tracking-tight uppercase text-left">Invite to Workspace</h3>
-            <p className="text-[11px] text-slate-400 font-semibold leading-relaxed text-left">
+          <div className="bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-3xl p-6 shadow-2xl max-w-sm w-full space-y-4 animate-fade-in animate-scale-up">
+            <h3 className="font-extrabold text-slate-800 dark:text-slate-100 text-sm tracking-tight uppercase text-left">Invite to Workspace</h3>
+            <p className="text-[11px] text-slate-400 dark:text-slate-500 font-semibold leading-relaxed text-left">
               Type the email of the registered user you wish to invite to this workspace. They will automatically join all projects and chat channels.
             </p>
             <div className="space-y-1.5 text-left">
-              <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block px-1">Email Address</label>
+              <label className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider block px-1">Email Address</label>
               <input 
                 type="email" 
                 value={inviteEmail}
                 onChange={(e) => setInviteEmail(e.target.value)}
                 placeholder="e.g. amir@prodify.com"
-                className="w-full text-xs font-semibold text-slate-700 bg-slate-50 border border-slate-100 rounded-2xl py-3 px-4 outline-none focus:bg-white focus:border-indigo-500 focus:ring-1 focus:ring-indigo-100 transition-all"
+                className="w-full text-xs font-semibold text-slate-700 dark:text-slate-200 bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-2xl py-3 px-4 outline-none focus:bg-white dark:focus:bg-slate-900 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-100 transition-all"
                 autoFocus
               />
             </div>

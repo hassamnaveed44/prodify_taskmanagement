@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from "react";
 import { Inbox, Send, Search, Loader2, MessageSquare, Hash } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useToast } from "@/components/ui/toast-provider";
 
 interface Team {
   id: string;
@@ -27,6 +28,7 @@ interface ChatMessage {
 }
 
 export default function InboxPage() {
+  const toast = useToast();
   const [teams, setTeams] = useState<Team[]>([]);
   const [users, setUsers] = useState<UserDM[]>([]);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -330,7 +332,7 @@ export default function InboxPage() {
     } catch (err) {
       console.error(err);
       setNewMessage(contentToSend);
-      alert("Failed to deliver message. Please check your network connection.");
+      toast.error("Failed to deliver message. Please check your network connection.");
     }
   };
 
