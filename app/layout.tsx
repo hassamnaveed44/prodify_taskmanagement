@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import BrowserFrame from "@/components/layout/browser-frame";
 import "./globals.css";
 
 import { ToastProvider } from "@/components/ui/toast-provider";
@@ -68,10 +67,7 @@ export default function RootLayout({
       </head>
       <body className="min-h-full font-sans antialiased text-slate-800 bg-[#f6f8fb]">
         <ToastProvider>
-          {/* Browser wrapper to replicate target UI presentation exactly */}
-          <BrowserFrame>
-            {children}
-          </BrowserFrame>
+          {children}
         </ToastProvider>
       </body>
     </html>
