@@ -55,6 +55,7 @@ model Workspace {
   projects       Project[]
   teams          Team[]
   calendarEvents CalendarEvent[]
+  dailyGoals     DailyGoal[]
 }
 
 enum WorkspaceRole {
@@ -253,6 +254,18 @@ model CalendarEvent {
   title       String
   description String?
   date        DateTime
+  workspaceId String
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+}
+
+// Daily Goals checklist for today
+model DailyGoal {
+  id          String    @id @default(uuid())
+  title       String
+  completed   Boolean   @default(false)
+  date        DateTime  @default(now())
   workspaceId String
   workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   createdAt   DateTime  @default(now())

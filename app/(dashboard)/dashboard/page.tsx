@@ -152,7 +152,7 @@ export default function DashboardPage() {
         {/* Left column (60% width) - Tasks & Goals */}
         <div className="lg:col-span-7 space-y-8 flex flex-col">
           <TasksPanel tasks={tasks} onStatusChange={handleTaskStatusChange} />
-          <GoalsPanel goals={goals} />
+          <GoalsPanel />
         </div>
 
         {/* Right column (40% width) - Projects, Calendar, Reminders */}
