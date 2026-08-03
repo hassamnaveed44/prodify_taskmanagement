@@ -189,10 +189,10 @@ export default function DashboardLayout({
 
 
   return (
-    <div className="flex h-full w-full overflow-hidden bg-[#f6f8fb]">
+    <div className="flex min-h-screen w-full bg-[#f6f8fb]">
       
       {/* 1. Desktop Left Sidebar */}
-      <div className="hidden md:flex md:w-64 md:flex-col md:h-full shrink-0">
+      <div className="hidden md:flex md:w-64 md:flex-col h-screen sticky top-0 shrink-0">
         <Sidebar 
           user={user} 
           workspace={workspace} 
