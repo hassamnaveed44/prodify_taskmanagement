@@ -90,7 +90,7 @@ export default function DashboardLayout({
     if (!user || !workspace) return;
 
     const wsProtocol = window.location.protocol === "https:" ? "wss:" : "ws:";
-    const wsUrl = `${wsProtocol}//${window.location.hostname}:3001`;
+    const wsUrl = process.env.NEXT_PUBLIC_SOCKET_URL || `${wsProtocol}//${window.location.host}`;
     const socket = new WebSocket(wsUrl);
 
     socket.onopen = () => {

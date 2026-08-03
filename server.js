@@ -60,10 +60,9 @@ app.prepare().then(() => {
     }
   });
 
-  // Initialize WebSocket Server on a separate, dedicated port (3001)
-  // This isolates WebSockets from Next.js HMR upgrades, preventing connection blocks.
-  const wss = new WebSocketServer({ port: 3001 });
-  console.log(`> ⚡ WebSocket Server listening on ws://localhost:3001`);
+  // Initialize WebSocket Server on the same HTTP server
+  const wss = new WebSocketServer({ server });
+  console.log(`> ⚡ WebSocket Server integrated with HTTP server`);
 
   // Store globally so REST endpoints can query it
   global.wss = wss;
