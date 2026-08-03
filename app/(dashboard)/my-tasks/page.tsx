@@ -60,7 +60,80 @@ export default function MyTasksPage() {
   const [editPriority, setEditPriority] = useState<"LOW" | "MEDIUM" | "HIGH">("MEDIUM");
   const [editDueDate, setEditDueDate] = useState("");
 
+  // Attachments & Screenshot Upload state
+  const [attachedFile, setAttachedFile] = useState<{
+    name: string;
+    type: string;
+    data: string;
+  } | null>(null);
+
   const dropdownRef = useRef<HTMLDivElement | null>(null);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      if (file.size > 2 * 1024 * 1024) {
+        toast.show("error", "Attachment exceeds 2MB limit.");
+        return;
+      }
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        if (event.target?.result) {
+          setAttachedFile({
+            name: file.name,
+            type: file.type,
+            data: event.target.result as string
+          });
+        }
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const handlePaste = (e: React.ClipboardEvent<HTMLInputElement>) => {
+    const items = e.clipboardData?.items;
+    if (!items) return;
+    for (let i = 0; i < items.length; i++) {
+      if (items[i].type.indexOf("image") !== -1) {
+        const file = items[i].getAsFile();
+        if (file) {
+          if (file.size > 2 * 1024 * 1024) {
+            toast.show("error", "Pasted image exceeds 2MB limit.");
+            return;
+          }
+          const reader = new FileReader();
+          reader.onload = (event) => {
+            if (event.target?.result) {
+              setAttachedFile({
+                name: file.name || "pasted_image.png",
+                type: file.type,
+                data: event.target.result as string
+              });
+            }
+          };
+          reader.readAsDataURL(file);
+          e.preventDefault();
+        }
+      }
+    }
+  };
+
+  const parseCommentContent = (content: string) => {
+    try {
+      if (content.startsWith("{") && content.endsWith("}")) {
+        const parsed = JSON.parse(content);
+        return {
+          text: parsed.text || "",
+          file: parsed.file || null
+        };
+      }
+    } catch (e) {}
+    return {
+      text: content,
+      file: null
+    };
+  };
 
   // Fetch tasks
   const fetchTasks = () => {
@@ -226,23 +299,29 @@ export default function MyTasksPage() {
     }
   };
 
-  // Add Comment
+// Add Comment
   const handleAddComment = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newCommentText.trim() || !selectedTask) return;
+    if (!newCommentText.trim() && !attachedFile) return;
 
     try {
-      const res = await fetch(`/api/tasks/${selectedTask.id}/comments`, {
+      const payloadContent = JSON.stringify({
+        text: newCommentText.trim(),
+        file: attachedFile
+      });
+
+      const res = await fetch(`/api/tasks/${selectedTask!.id}/comments`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ content: newCommentText.trim() }),
+        body: JSON.stringify({ content: payloadContent }),
       });
 
       if (res.ok) {
         const data = await res.json();
         setComments(prev => [...prev, data.comment]);
         setNewCommentText("");
-        toast.show("success", "Comment added.");
+        setAttachedFile(null);
+        toast.show("success", "Work submission added.");
       } else {
         toast.show("error", "Failed to add comment.");
       }
@@ -430,38 +509,22 @@ export default function MyTasksPage() {
                         </span>
                       </td>
                       <td className="py-4 px-4 text-left relative" onClick={(e) => e.stopPropagation()}>
-                        <button
-                          onClick={() => setActiveDropdownTaskId(activeDropdownTaskId === task.id ? null : task.id)}
-                          className={cn(
-                            "px-2.5 py-1 rounded-md font-extrabold uppercase tracking-wide text-[9px] flex items-center gap-1.5 cursor-pointer border border-transparent shadow-xs transition-all",
-                            getStatusStyles(task.status)
-                          )}
-                        >
-                          {getStatusLabel(task.status)}
-                          <ChevronDown className="w-3.5 h-3.5" />
-                        </button>
-
-                        {/* Interactive Status Dropdown Menu */}
-                        {activeDropdownTaskId === task.id && (
-                          <div 
-                            ref={dropdownRef}
-                            className="absolute left-4 top-11 mt-1 bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-xl shadow-xl z-10 py-1.5 min-w-[120px] text-left animate-fade-in"
+                        <div className="relative inline-block">
+                          <select
+                            value={task.status}
+                            onChange={(e) => handleStatusChange(task.id, e.target.value as Task["status"])}
+                            className={cn(
+                              "appearance-none pr-7 pl-2.5 py-1 rounded-md font-extrabold uppercase tracking-wide text-[9px] cursor-pointer border border-transparent shadow-xs transition-all outline-none focus:ring-1 focus:ring-indigo-400 dark:focus:ring-indigo-900",
+                              getStatusStyles(task.status)
+                            )}
                           >
-                            {(["TODO", "IN_PROGRESS", "UPCOMING", "COMPLETED"] as Task["status"][]).map((status) => (
-                              <button
-                                key={status}
-                                onClick={() => handleStatusChange(task.id, status)}
-                                className={cn(
-                                  "w-full text-left px-3.5 py-1.5 text-[10px] font-bold uppercase tracking-wider hover:bg-slate-55 dark:hover:bg-slate-700 flex items-center justify-between cursor-pointer",
-                                  task.status === status ? "text-indigo-650 dark:text-indigo-400" : "text-slate-600 dark:text-slate-300"
-                                )}
-                              >
-                                {getStatusLabel(status)}
-                                {task.status === status && <Check className="w-3.5 h-3.5" />}
-                              </button>
-                            ))}
-                          </div>
-                        )}
+                            <option value="TODO" className="text-slate-700 bg-white dark:bg-slate-800 dark:text-slate-200">To Do</option>
+                            <option value="IN_PROGRESS" className="text-slate-700 bg-white dark:bg-slate-800 dark:text-slate-200">In Progress</option>
+                            <option value="UPCOMING" className="text-slate-700 bg-white dark:bg-slate-800 dark:text-slate-200">Upcoming</option>
+                            <option value="COMPLETED" className="text-slate-700 bg-white dark:bg-slate-800 dark:text-slate-200">Completed</option>
+                          </select>
+                          <ChevronDown className="w-3 h-3 absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none opacity-80" />
+                        </div>
                       </td>
                       <td className="py-4 px-4 text-right" onClick={(e) => e.stopPropagation()}>
                         <div className="flex items-center justify-end gap-2">
@@ -526,13 +589,23 @@ export default function MyTasksPage() {
                 {/* Inline attributes list */}
                 <div className="grid grid-cols-2 gap-4 bg-slate-50/50 dark:bg-slate-800/30 border border-slate-50 dark:border-slate-800 rounded-2xl p-4">
                   <div className="space-y-1.5 text-left">
-                    <span className="text-[10px] font-bold text-slate-450 dark:text-slate-500 uppercase tracking-wider block">Status</span>
-                    <span className={cn(
-                      "px-2.5 py-1 rounded-md font-extrabold text-[10px] uppercase tracking-wide inline-block",
-                      getStatusStyles(selectedTask.status)
-                    )}>
-                      {getStatusLabel(selectedTask.status)}
-                    </span>
+                    <span className="text-[10px] font-bold text-slate-455 dark:text-slate-500 uppercase tracking-wider block">Status</span>
+                    <div className="relative inline-block">
+                      <select
+                        value={selectedTask.status}
+                        onChange={(e) => handleStatusChange(selectedTask.id, e.target.value as Task["status"])}
+                        className={cn(
+                          "appearance-none pr-7 pl-2.5 py-1 rounded-md font-extrabold uppercase tracking-wide text-[9px] cursor-pointer border border-transparent shadow-xs transition-all outline-none focus:ring-1 focus:ring-indigo-400 dark:focus:ring-indigo-900",
+                          getStatusStyles(selectedTask.status)
+                        )}
+                      >
+                        <option value="TODO" className="text-slate-700 bg-white dark:bg-slate-800 dark:text-slate-200">To Do</option>
+                        <option value="IN_PROGRESS" className="text-slate-700 bg-white dark:bg-slate-800 dark:text-slate-200">In Progress</option>
+                        <option value="UPCOMING" className="text-slate-700 bg-white dark:bg-slate-800 dark:text-slate-200">Upcoming</option>
+                        <option value="COMPLETED" className="text-slate-700 bg-white dark:bg-slate-800 dark:text-slate-200">Completed</option>
+                      </select>
+                      <ChevronDown className="w-3 h-3 absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none opacity-80" />
+                    </div>
                   </div>
 
                   <div className="space-y-1.5 text-left">
@@ -562,18 +635,61 @@ export default function MyTasksPage() {
                   </h4>
                 </div>
 
+                {/* File preview badge before submission */}
+                {attachedFile && (
+                  <div className="flex items-center justify-between p-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-2xl mb-2 animate-fade-in">
+                    <div className="flex items-center gap-2">
+                      {attachedFile.type.startsWith("image") ? (
+                        <img src={attachedFile.data} className="w-8 h-8 rounded-lg object-cover" />
+                      ) : (
+                        <CheckSquare className="w-4 h-4 text-indigo-500" />
+                      )}
+                      <div className="flex flex-col text-left">
+                        <span className="text-[11px] font-bold text-slate-700 dark:text-slate-200 truncate max-w-[200px]">{attachedFile.name}</span>
+                        <span className="text-[9px] text-slate-450 dark:text-slate-500 font-bold uppercase tracking-wider">Submission Attachment</span>
+                      </div>
+                    </div>
+                    <button 
+                      type="button" 
+                      onClick={() => setAttachedFile(null)}
+                      className="text-slate-400 hover:text-rose-500 p-1 cursor-pointer"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+                )}
+
                 {/* New Comment Submission Form */}
-                <form onSubmit={handleAddComment} className="flex gap-2">
-                  <input 
-                    type="text" 
-                    value={newCommentText}
-                    onChange={(e) => setNewCommentText(e.target.value)}
-                    placeholder="Add a comment or tracking updates..."
-                    className="flex-1 text-xs font-semibold text-slate-700 dark:text-slate-200 bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-2xl py-3 px-4 outline-none focus:bg-white dark:focus:bg-slate-900 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-100 transition-all placeholder:text-slate-400"
-                  />
+                <form onSubmit={handleAddComment} className="flex items-center gap-2">
+                  <div className="flex-1 relative">
+                    <input 
+                      type="text" 
+                      value={newCommentText}
+                      onChange={(e) => setNewCommentText(e.target.value)}
+                      onPaste={handlePaste}
+                      placeholder="Add comments or paste screenshots (Ctrl+V)..."
+                      className="w-full text-xs font-semibold text-slate-700 dark:text-slate-200 bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-2xl py-3 pl-4 pr-11 outline-none focus:bg-white dark:focus:bg-slate-900 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-100 transition-all placeholder:text-slate-400"
+                    />
+                    {/* Attachment trigger icon */}
+                    <button 
+                      type="button"
+                      onClick={() => fileInputRef.current?.click()}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-indigo-650 dark:hover:text-indigo-400 p-1 cursor-pointer"
+                      title="Upload file or screenshot"
+                    >
+                      <Plus className="w-4 h-4" />
+                    </button>
+                    <input 
+                      type="file" 
+                      ref={fileInputRef} 
+                      onChange={handleFileChange} 
+                      className="hidden" 
+                      accept="image/*,application/pdf,application/zip,text/*"
+                    />
+                  </div>
                   <button 
                     type="submit" 
-                    disabled={!newCommentText.trim()}
+                    disabled={!newCommentText.trim() && !attachedFile}
                     className="bg-indigo-650 hover:bg-indigo-700 disabled:opacity-50 text-white p-3 rounded-2xl flex items-center justify-center transition-all cursor-pointer shadow-sm shrink-0"
                   >
                     <Send className="w-4.5 h-4.5" />
@@ -593,28 +709,75 @@ export default function MyTasksPage() {
                     </p>
                   ) : (
                     <div className="space-y-3 max-h-[250px] overflow-y-auto pr-1">
-                      {comments.map((comment) => (
-                        <div 
-                          key={comment.id} 
-                          className="flex items-start gap-3 p-3 bg-slate-50/20 dark:bg-slate-800/10 border border-slate-50 dark:border-slate-800/50 rounded-2xl text-left"
-                        >
-                          <div className="w-7 h-7 rounded-full bg-indigo-50 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-400 text-[10px] font-extrabold flex items-center justify-center shrink-0">
-                            {comment.authorInitials}
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center justify-between">
-                              <span className="text-[11px] font-bold text-slate-800 dark:text-slate-200">{comment.authorName}</span>
-                              <span className="text-[9px] text-slate-400 dark:text-slate-500 flex items-center gap-1">
-                                <Clock className="w-3 h-3" />
-                                {new Date(comment.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                              </span>
+                      {comments.map((comment) => {
+                        const parsed = parseCommentContent(comment.content);
+                        return (
+                          <div 
+                            key={comment.id} 
+                            className="flex items-start gap-3 p-3 bg-slate-50/20 dark:bg-slate-800/10 border border-slate-50 dark:border-slate-800/50 rounded-2xl text-left"
+                          >
+                            <div className="w-7 h-7 rounded-full bg-indigo-50 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-400 text-[10px] font-extrabold flex items-center justify-center shrink-0">
+                              {comment.authorInitials}
                             </div>
-                            <p className="text-xs text-slate-600 dark:text-slate-350 mt-1 font-semibold leading-relaxed break-words">
-                              {comment.content}
-                            </p>
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center justify-between">
+                                <span className="text-[11px] font-bold text-slate-800 dark:text-slate-200">{comment.authorName}</span>
+                                <span className="text-[9px] text-slate-400 dark:text-slate-500 flex items-center gap-1">
+                                  <Clock className="w-3 h-3" />
+                                  {new Date(comment.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                </span>
+                              </div>
+                              
+                              {/* Comment Text */}
+                              {parsed.text && (
+                                <p className="text-xs text-slate-600 dark:text-slate-300 mt-1 font-semibold leading-relaxed break-words">
+                                  {parsed.text}
+                                </p>
+                              )}
+
+                              {/* Comment Attachment File submission */}
+                              {parsed.file && (
+                                <div className="mt-2 text-left">
+                                  {parsed.file.type.startsWith("image") ? (
+                                    <div className="relative group max-w-sm rounded-lg overflow-hidden border border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-800">
+                                      <img 
+                                        src={parsed.file.data} 
+                                        alt={parsed.file.name} 
+                                        className="w-full max-h-56 object-cover hover:scale-[1.02] transition-transform duration-300"
+                                      />
+                                      <div className="p-2 bg-slate-50/80 dark:bg-slate-800/80 backdrop-blur-xs flex items-center justify-between text-[10px] font-bold text-slate-555 border-t border-slate-100 dark:border-slate-800">
+                                        <span className="truncate max-w-[200px]">{parsed.file.name}</span>
+                                        <a 
+                                          href={parsed.file.data} 
+                                          download={parsed.file.name}
+                                          className="text-indigo-600 dark:text-indigo-400 hover:underline cursor-pointer"
+                                        >
+                                          Download
+                                        </a>
+                                      </div>
+                                    </div>
+                                  ) : (
+                                    <div className="flex items-center justify-between p-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-xl max-w-sm">
+                                      <div className="flex items-center gap-2 min-w-0">
+                                        <CheckSquare className="w-4 h-4 text-indigo-500 shrink-0" />
+                                        <span className="text-[11px] font-bold text-slate-700 dark:text-slate-200 truncate">{parsed.file.name}</span>
+                                      </div>
+                                      <a 
+                                        href={parsed.file.data} 
+                                        download={parsed.file.name}
+                                        className="text-[10px] font-bold text-indigo-600 dark:text-indigo-400 hover:underline ml-3 shrink-0 cursor-pointer"
+                                      >
+                                        Download
+                                      </a>
+                                    </div>
+                                  )}
+                                </div>
+                              )}
+
+                            </div>
                           </div>
-                        </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   )}
                 </div>
