@@ -67,6 +67,10 @@ export default function MyTasksPage() {
     data: string;
   } | null>(null);
 
+  // Custom Delete Confirmation state
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [taskIdToDelete, setTaskIdToDelete] = useState<string | null>(null);
+
   const dropdownRef = useRef<HTMLDivElement | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
@@ -220,21 +224,23 @@ export default function MyTasksPage() {
   };
 
   // Delete task
-  const handleDeleteTask = async (taskId: string, event?: React.MouseEvent) => {
+  const handleDeleteTask = (taskId: string, event?: React.MouseEvent) => {
     if (event) event.stopPropagation();
-    if (!confirm("Are you sure you want to delete this task? This action cannot be undone.")) {
-      return;
-    }
+    setTaskIdToDelete(taskId);
+    setShowDeleteConfirm(true);
+  };
 
+  const confirmDeleteTask = async () => {
+    if (!taskIdToDelete) return;
     try {
-      const res = await fetch(`/api/tasks/${taskId}`, {
+      const res = await fetch(`/api/tasks/${taskIdToDelete}`, {
         method: "DELETE",
       });
 
       if (res.ok) {
         toast.show("success", "Task deleted successfully.");
-        setTasks(prev => prev.filter(t => t.id !== taskId));
-        if (selectedTask && selectedTask.id === taskId) {
+        setTasks(prev => prev.filter(t => t.id !== taskIdToDelete));
+        if (selectedTask && selectedTask.id === taskIdToDelete) {
           setSelectedTask(null);
         }
       } else {
@@ -243,6 +249,9 @@ export default function MyTasksPage() {
     } catch (err) {
       console.error("Task deletion failure:", err);
       toast.show("error", "An error occurred deleting the task.");
+    } finally {
+      setShowDeleteConfirm(false);
+      setTaskIdToDelete(null);
     }
   };
 
@@ -392,7 +401,7 @@ export default function MyTasksPage() {
   if (loading) {
     return (
       <div className="flex flex-col items-center justify-center py-24 space-y-4 bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-3xl p-6 shadow-sm">
-        <Loader2 className="w-10 h-10 animate-spin text-indigo-650 dark:text-indigo-400" />
+        <Loader2 className="w-10 h-10 animate-spin text-indigo-600 dark:text-indigo-400" />
         <p className="text-slate-400 dark:text-slate-500 font-bold text-xs uppercase tracking-wider">Compiling all tasks...</p>
       </div>
     );
@@ -530,7 +539,7 @@ export default function MyTasksPage() {
                         <div className="flex items-center justify-end gap-2">
                           <button 
                             onClick={(e) => openEditModal(task, e)}
-                            className="text-slate-400 hover:text-indigo-650 dark:hover:text-indigo-400 p-1.5 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors flex items-center gap-1 cursor-pointer"
+                            className="text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 p-1.5 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors flex items-center gap-1 cursor-pointer"
                           >
                             <Edit2 className="w-3.5 h-3.5" />
                             <span>Edit</span>
@@ -674,7 +683,7 @@ export default function MyTasksPage() {
                     <button 
                       type="button"
                       onClick={() => fileInputRef.current?.click()}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-indigo-650 dark:hover:text-indigo-400 p-1 cursor-pointer"
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 p-1 cursor-pointer"
                       title="Upload file or screenshot"
                     >
                       <Plus className="w-4 h-4" />
@@ -690,7 +699,7 @@ export default function MyTasksPage() {
                   <button 
                     type="submit" 
                     disabled={!newCommentText.trim() && !attachedFile}
-                    className="bg-indigo-650 hover:bg-indigo-700 disabled:opacity-50 text-white p-3 rounded-2xl flex items-center justify-center transition-all cursor-pointer shadow-sm shrink-0"
+                    className="bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white p-3 rounded-2xl flex items-center justify-center transition-all cursor-pointer shadow-sm shrink-0"
                   >
                     <Send className="w-4.5 h-4.5" />
                   </button>
@@ -860,12 +869,48 @@ export default function MyTasksPage() {
               </button>
               <button 
                 type="submit"
-                className="bg-indigo-650 text-white text-xs font-extrabold px-4.5 py-2.5 rounded-xl hover:bg-indigo-700 transition-colors shadow-sm cursor-pointer"
+                className="bg-indigo-600 text-white text-xs font-extrabold px-4.5 py-2.5 rounded-xl hover:bg-indigo-700 transition-colors shadow-sm cursor-pointer"
               >
                 Save Changes
               </button>
             </div>
           </form>
+        </div>
+      )}
+
+      {/* 5. Custom Delete Confirmation Overlay Modal */}
+      {showDeleteConfirm && (
+        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center z-50 p-4">
+          <div className="bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-3xl p-6 shadow-2xl max-w-sm w-full space-y-4 animate-fade-in text-center">
+            <div className="w-12 h-12 rounded-full bg-red-50 dark:bg-red-950/20 text-red-500 flex items-center justify-center mx-auto">
+              <AlertCircle className="w-6 h-6" />
+            </div>
+            <div className="space-y-2">
+              <h3 className="font-extrabold text-slate-850 dark:text-slate-100 text-sm tracking-tight uppercase">Delete Task</h3>
+              <p className="text-xs text-slate-500 dark:text-slate-400 font-semibold leading-relaxed">
+                Are you sure you want to delete this task? This action cannot be undone.
+              </p>
+            </div>
+            <div className="flex items-center justify-center gap-2.5 pt-2">
+              <button 
+                type="button"
+                onClick={() => {
+                  setShowDeleteConfirm(false);
+                  setTaskIdToDelete(null);
+                }}
+                className="text-xs font-bold text-slate-400 dark:text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 px-4 py-2 cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button 
+                type="button"
+                onClick={confirmDeleteTask}
+                className="bg-red-500 hover:bg-red-650 text-white text-xs font-extrabold px-4.5 py-2.5 rounded-xl transition-colors shadow-sm cursor-pointer"
+              >
+                Delete Task
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>
