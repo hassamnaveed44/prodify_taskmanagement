@@ -1,112 +1,213 @@
 "use client";
 
-import { Calendar, ChevronLeft, ChevronRight, Video, MoreHorizontal } from "lucide-react";
+import { useState, useEffect } from "react";
+import { Calendar as CalendarIcon, ChevronLeft, ChevronRight, Video, FileText } from "lucide-react";
 import { cn } from "@/lib/utils";
+import Link from "next/link";
 
-const weekDays = [
-  { day: "Fri", num: "04" },
-  { day: "Sat", num: "05" },
-  { day: "Sun", num: "06" },
-  { day: "Mon", num: "07", isSelected: true },
-  { day: "Tue", num: "08" },
-  { day: "Wed", num: "09" },
-  { day: "Thu", num: "10" },
-];
+interface CalendarEvent {
+  id: string;
+  title: string;
+  description: string | null;
+  date: string;
+}
 
-const meetingAttendees = [
-  { name: "Courtney Henry", avatar: "CH", color: "bg-orange-500" },
-  { name: "Hassam", avatar: "HN", color: "bg-indigo-600" },
-  { name: "Devin", avatar: "DV", color: "bg-emerald-500" },
-  { name: "John", avatar: "JD", color: "bg-pink-500" },
-];
+interface CalendarTask {
+  id: string;
+  name: string;
+  status: string;
+  priority: string;
+  dueDate: string | null;
+}
 
 export default function CalendarPanel() {
+  const [selectedDate, setSelectedDate] = useState(new Date());
+  const [events, setEvents] = useState<CalendarEvent[]>([]);
+  const [tasks, setTasks] = useState<CalendarTask[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  // Load calendar events & tasks from APIs
+  const fetchCalendarData = async () => {
+    try {
+      const [eventsRes, tasksRes] = await Promise.all([
+        fetch("/api/calendar-events", { cache: "no-store" }),
+        fetch("/api/tasks", { cache: "no-store" })
+      ]);
+
+      if (eventsRes.ok) {
+        const eventsData = await eventsRes.json();
+        setEvents(eventsData.events || []);
+      }
+
+      if (tasksRes.ok) {
+        const tasksData = await tasksRes.json();
+        setTasks(tasksData.tasks || []);
+      }
+    } catch (err) {
+      console.error("Failed to load dashboard calendar events:", err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchCalendarData();
+  }, []);
+
+  // Center strip around current selected Date
+  const generateWeekDays = (centerDate: Date) => {
+    const weekDays = [];
+    const dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+    // Generate 7 days centered on centerDate (3 days before, 3 days after)
+    for (let i = -3; i <= 3; i++) {
+      const d = new Date(centerDate);
+      d.setDate(centerDate.getDate() + i);
+      weekDays.push({
+        name: dayNames[d.getDay()],
+        num: String(d.getDate()).padStart(2, "0"),
+        date: d,
+        isSelected: d.toDateString() === selectedDate.toDateString()
+      });
+    }
+    return weekDays;
+  };
+
+  const handlePrevDays = () => {
+    setSelectedDate((prev) => {
+      const next = new Date(prev);
+      next.setDate(next.getDate() - 7);
+      return next;
+    });
+  };
+
+  const handleNextDays = () => {
+    setSelectedDate((prev) => {
+      const next = new Date(prev);
+      next.setDate(next.getDate() + 7);
+      return next;
+    });
+  };
+
+  const monthNames = [
+    "January", "February", "March", "April", "May", "June",
+    "July", "August", "September", "October", "November", "December"
+  ];
+
+  const currentMonthName = monthNames[selectedDate.getMonth()];
+  const weekDays = generateWeekDays(selectedDate);
+
+  // Filter events and tasks for selected day
+  const targetDateStr = selectedDate.toDateString();
+  const dayEvents = events.filter(e => new Date(e.date).toDateString() === targetDateStr);
+  const dayTasks = tasks.filter(t => t.dueDate && new Date(t.dueDate).toDateString() === targetDateStr);
+
   return (
-    <div className="bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-3xl p-6 shadow-sm flex flex-col h-full">
+    <div className="bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-3xl p-6 shadow-sm flex flex-col h-full text-left select-none">
       {/* Header */}
-      <div className="flex items-center justify-between pb-6 border-b border-slate-50 dark:border-slate-800 mb-4">
+      <div className="flex items-center justify-between pb-4 border-b border-slate-50 dark:border-slate-800 mb-4 shrink-0">
         <div className="flex items-center gap-3">
           <div className="w-8 h-8 rounded-lg bg-indigo-50 dark:bg-indigo-950/50 flex items-center justify-center text-indigo-600 dark:text-indigo-400">
-            <Calendar className="w-4 h-4" />
+            <CalendarIcon className="w-4 h-4" />
           </div>
-          <h3 className="font-semibold text-slate-800 dark:text-slate-100 text-base">Calendar</h3>
-          <span className="text-xs font-semibold text-slate-400 dark:text-slate-500">July</span>
+          <h3 className="font-semibold text-slate-800 dark:text-slate-100 text-sm">Calendar</h3>
+          <span className="text-xs font-semibold text-slate-400 dark:text-slate-500">
+            {currentMonthName}
+          </span>
         </div>
         <div className="flex items-center gap-1.5">
-          <button className="text-slate-400 hover:text-slate-650 transition-colors p-1 rounded hover:bg-slate-55">
+          <button 
+            onClick={handlePrevDays}
+            className="text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 transition-colors p-1 rounded hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer"
+          >
             <ChevronLeft className="w-4 h-4" />
           </button>
-          <button className="text-slate-400 hover:text-slate-650 transition-colors p-1 rounded hover:bg-slate-55">
+          <button 
+            onClick={handleNextDays}
+            className="text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 transition-colors p-1 rounded hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer"
+          >
             <ChevronRight className="w-4 h-4" />
           </button>
         </div>
       </div>
 
       {/* Weekly horizontal strip */}
-      <div className="flex items-center justify-between py-2 mb-4 bg-slate-50/50 dark:bg-slate-800/30 rounded-2xl px-2">
-        {weekDays.map((day) => (
+      <div className="flex items-center justify-between py-2 mb-4 bg-slate-50/50 dark:bg-slate-800/30 rounded-2xl px-2 shrink-0">
+        {weekDays.map((day, i) => (
           <div 
-            key={day.num} 
+            key={i} 
+            onClick={() => setSelectedDate(day.date)}
             className={cn(
-              "flex flex-col items-center justify-center py-2 px-3 rounded-xl cursor-pointer select-none transition-all duration-300 min-w-[36px]",
+              "flex flex-col items-center justify-center py-2 px-3 rounded-xl cursor-pointer transition-all duration-200 min-w-[36px]",
               day.isSelected 
-                ? "bg-indigo-600 text-white shadow-sm shadow-indigo-200 scale-105" 
+                ? "bg-indigo-600 text-white shadow-sm scale-105" 
                 : "text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-800 dark:hover:text-slate-200"
             )}
           >
             <span className={cn("text-[10px] font-semibold mb-0.5", day.isSelected ? "text-white/80" : "text-slate-400 dark:text-slate-500")}>
-              {day.day}
+              {day.name}
             </span>
-            <span className="text-sm font-bold">{day.num}</span>
+            <span className="text-xs font-black">{day.num}</span>
           </div>
         ))}
       </div>
 
-      {/* Selected Day Event Card */}
-      <div className="border border-slate-100 dark:border-slate-800 bg-[#f9fafc] dark:bg-slate-800/10 rounded-2xl p-4 flex flex-col gap-3 relative hover:shadow-md transition-all duration-300">
-        <div className="flex items-start justify-between">
-          <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl bg-indigo-50 dark:bg-indigo-950/50 border border-indigo-100 dark:border-indigo-900 flex items-center justify-center text-indigo-600 dark:text-indigo-400 shrink-0 shadow-sm">
-              <Video className="w-4.5 h-4.5" />
-            </div>
-            <div>
-              <h4 className="text-sm font-semibold text-slate-850 dark:text-slate-200 hover:text-indigo-600 transition-colors cursor-pointer select-none">
-                Meeting with VP
-              </h4>
-              <p className="text-[11px] text-slate-400 dark:text-slate-500 font-medium mt-0.5">
-                Today <span className="mx-1">•</span> 10:00 - 11:00 am
-              </p>
-            </div>
+      {/* Events & Deadlines container */}
+      <div className="flex-1 overflow-y-auto max-h-[170px] space-y-3 pr-1">
+        {loading ? (
+          <p className="text-slate-350 text-xs italic py-4 text-center">Synchronizing calendar...</p>
+        ) : dayEvents.length === 0 && dayTasks.length === 0 ? (
+          <div className="py-6 text-center">
+            <p className="text-slate-355 text-xs italic">No workspace events or deadlines.</p>
+            <Link 
+              href="/calendar"
+              className="text-[10px] font-bold text-indigo-600 dark:text-indigo-400 hover:underline mt-2 inline-block"
+            >
+              Go to Calendar &rarr;
+            </Link>
           </div>
-          <button className="text-slate-400 hover:text-slate-650 dark:hover:text-slate-200 transition-colors p-1 rounded hover:bg-white/80 dark:hover:bg-slate-800/50">
-            <MoreHorizontal className="w-4.5 h-4.5" />
-          </button>
-        </div>
-
-        {/* Info & Attendees row */}
-        <div className="flex items-center justify-between pt-2 border-t border-slate-100/50 dark:border-slate-800/50">
-          {/* Platform Badge */}
-          <span className="bg-emerald-50 dark:bg-emerald-950/20 text-emerald-600 dark:text-emerald-455 font-bold text-[10px] tracking-wide uppercase px-2 py-0.5 rounded-md flex items-center gap-1 select-none">
-            <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse" />
-            Google Meet
-          </span>
-
-          {/* Attendee Avatar Stack */}
-          <div className="flex items-center -space-x-1.5 overflow-hidden">
-            {meetingAttendees.map((att, i) => (
+        ) : (
+          <>
+            {/* Render Day Custom Events */}
+            {dayEvents.map((evt) => (
               <div 
-                key={att.name} 
-                className={cn("w-6 h-6 rounded-full text-[9px] font-bold text-white flex items-center justify-center ring-2 ring-white dark:ring-slate-900 select-none shrink-0 shadow-sm", att.color)}
-                title={att.name}
+                key={evt.id}
+                className="border border-slate-100 dark:border-slate-800 bg-[#fbfbfe] dark:bg-slate-800/10 rounded-2xl p-3 flex items-start gap-3 hover:shadow-xs transition-shadow text-left"
               >
-                {att.avatar}
+                <div className="w-8 h-8 rounded-xl bg-purple-50 dark:bg-purple-950/40 border border-purple-100 dark:border-purple-900/30 flex items-center justify-center text-purple-600 dark:text-purple-400 shrink-0">
+                  <Video className="w-4 h-4" />
+                </div>
+                <div className="min-w-0">
+                  <h4 className="text-xs font-bold text-slate-800 dark:text-slate-200 truncate">
+                    {evt.title}
+                  </h4>
+                  <p className="text-[10px] text-slate-400 dark:text-slate-500 font-semibold mt-0.5 truncate">
+                    {evt.description || "Custom workspace event"}
+                  </p>
+                </div>
               </div>
             ))}
-            <div className="w-6 h-6 rounded-full bg-indigo-100 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-400 text-[9px] font-bold flex items-center justify-center ring-2 ring-white dark:ring-slate-900 shrink-0 shadow-sm select-none">
-              +2
-            </div>
-          </div>
-        </div>
+
+            {/* Render Day Tasks/Deadlines */}
+            {dayTasks.map((task) => (
+              <div 
+                key={task.id}
+                className="border border-slate-100 dark:border-slate-800 bg-[#fafbfa] dark:bg-slate-800/10 rounded-2xl p-3 flex items-start gap-3 hover:shadow-xs transition-shadow text-left"
+              >
+                <div className="w-8 h-8 rounded-xl bg-indigo-50 dark:bg-indigo-950/40 border border-indigo-100 dark:border-indigo-900/30 flex items-center justify-center text-indigo-650 dark:text-indigo-400 shrink-0">
+                  <FileText className="w-4 h-4" />
+                </div>
+                <div className="min-w-0">
+                  <h4 className="text-xs font-bold text-slate-850 dark:text-slate-200 truncate">
+                    {task.name}
+                  </h4>
+                  <p className="text-[10px] text-slate-400 dark:text-slate-500 font-semibold mt-0.5 flex items-center gap-1.5 uppercase tracking-wide">
+                    Task Deadline <span className="w-1 h-1 bg-red-400 rounded-full" /> {task.priority}
+                  </p>
+                </div>
+              </div>
+            ))}
+          </>
+        )}
       </div>
     </div>
   );

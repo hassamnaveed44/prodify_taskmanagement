@@ -1,8 +1,12 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { Calendar as CalendarIcon, ChevronLeft, ChevronRight, Loader2, Sparkles, User, CheckCircle2, Clock, AlertCircle } from "lucide-react";
+import { useState, useEffect, useRef } from "react";
+import { 
+  Calendar as CalendarIcon, ChevronLeft, ChevronRight, Loader2, Sparkles, 
+  User, CheckCircle2, Clock, AlertCircle, Plus, Trash2, X, FileText 
+} from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useToast } from "@/components/ui/toast-provider";
 
 const daysOfWeek = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 const monthNames = [
@@ -22,30 +26,65 @@ interface CalendarTask {
   assignee: string | null;
 }
 
+interface CalendarEvent {
+  id: string;
+  title: string;
+  description: string | null;
+  date: string;
+}
+
 export default function CalendarPage() {
+  const { success, error } = useToast();
+  const toast = {
+    show: (type: "success" | "error" | "info", msg: string) => {
+      if (type === "success") success(msg);
+      else error(msg);
+    }
+  };
+
   const [currentDate, setCurrentDate] = useState(new Date());
   const [tasks, setTasks] = useState<CalendarTask[]>([]);
+  const [events, setEvents] = useState<CalendarEvent[]>([]);
   const [loading, setLoading] = useState(true);
+  
+  // Popups/Modals state
   const [selectedTask, setSelectedTask] = useState<CalendarTask | null>(null);
+  const [selectedEvent, setSelectedEvent] = useState<CalendarEvent | null>(null);
+  const [isAddEventModalOpen, setIsAddEventModalOpen] = useState(false);
 
-  useEffect(() => {
-    fetchTasks();
-  }, []);
+  // New Event Form state
+  const [newEventTitle, setNewEventTitle] = useState("");
+  const [newEventDesc, setNewEventDesc] = useState("");
+  const [newEventDate, setNewEventDate] = useState("");
 
-  const fetchTasks = async () => {
+  const fetchCalendarData = async () => {
     setLoading(true);
     try {
-      const response = await fetch("/api/tasks", { cache: "no-store" });
-      if (response.ok) {
-        const data = await response.json();
-        setTasks(data.tasks || []);
+      const [tasksRes, eventsRes] = await Promise.all([
+        fetch("/api/tasks", { cache: "no-store" }),
+        fetch("/api/calendar-events", { cache: "no-store" })
+      ]);
+
+      if (tasksRes.ok) {
+        const tasksData = await tasksRes.json();
+        setTasks(tasksData.tasks || []);
+      }
+
+      if (eventsRes.ok) {
+        const eventsData = await eventsRes.json();
+        setEvents(eventsData.events || []);
       }
     } catch (err) {
-      console.error("Failed to fetch calendar tasks:", err);
+      console.error("Failed to load calendar data:", err);
+      toast.show("error", "Failed to load calendar data.");
     } finally {
       setLoading(false);
     }
   };
+
+  useEffect(() => {
+    fetchCalendarData();
+  }, []);
 
   const handlePrevMonth = () => {
     setCurrentDate((prev) => {
@@ -61,6 +100,61 @@ export default function CalendarPage() {
       next.setMonth(next.getMonth() + 1);
       return next;
     });
+  };
+
+  const handleAddEventSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newEventTitle.trim() || !newEventDate) {
+      toast.show("error", "Event title and date are required.");
+      return;
+    }
+
+    try {
+      const res = await fetch("/api/calendar-events", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title: newEventTitle.trim(),
+          description: newEventDesc.trim() || null,
+          date: new Date(newEventDate).toISOString(),
+        }),
+      });
+
+      if (res.ok) {
+        toast.show("success", `Custom event "${newEventTitle}" added successfully.`);
+        setNewEventTitle("");
+        setNewEventDesc("");
+        setNewEventDate("");
+        setIsAddEventModalOpen(false);
+        fetchCalendarData();
+      } else {
+        toast.show("error", "Failed to save the calendar event.");
+      }
+    } catch (err) {
+      console.error("Failed to add calendar event:", err);
+      toast.show("error", "An error occurred adding the event.");
+    }
+  };
+
+  const handleDeleteEvent = async (eventId: string) => {
+    if (!confirm("Are you sure you want to delete this event?")) return;
+
+    try {
+      const res = await fetch(`/api/calendar-events/${eventId}`, {
+        method: "DELETE",
+      });
+
+      if (res.ok) {
+        toast.show("success", "Event deleted successfully.");
+        setSelectedEvent(null);
+        fetchCalendarData();
+      } else {
+        toast.show("error", "Failed to delete the event.");
+      }
+    } catch (err) {
+      console.error("Failed to delete event:", err);
+      toast.show("error", "An error occurred deleting the event.");
+    }
   };
 
   // Generate calendar days grid
@@ -117,7 +211,7 @@ export default function CalendarPage() {
     });
   }
 
-  // Map workspace tasks by due date key
+  // Map tasks by due date key
   const taskMap: { [key: string]: CalendarTask[] } = {};
   tasks.forEach((task) => {
     if (task.dueDate) {
@@ -129,31 +223,54 @@ export default function CalendarPage() {
     }
   });
 
+  // Map custom calendar events by date key
+  const eventMap: { [key: string]: CalendarEvent[] } = {};
+  events.forEach((event) => {
+    if (event.date) {
+      const dateKey = event.date.split("T")[0];
+      if (!eventMap[dateKey]) {
+        eventMap[dateKey] = [];
+      }
+      eventMap[dateKey].push(event);
+    }
+  });
+
   return (
-    <div className="bg-white border border-slate-100 rounded-3xl p-6 shadow-sm flex flex-col space-y-6 text-left animate-fade-in relative select-none">
+    <div className="bg-white border border-slate-100 dark:border-slate-800 dark:bg-slate-900 rounded-3xl p-6 shadow-sm flex flex-col space-y-6 text-left animate-fade-in relative select-none">
       
       {/* Calendar Header Panel */}
-      <div className="flex items-center justify-between pb-4 border-b border-slate-50 shrink-0">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-50 dark:border-slate-800 shrink-0">
         <div className="flex items-center gap-3">
-          <div className="w-8 h-8 rounded-lg bg-indigo-50 flex items-center justify-center text-indigo-600">
+          <div className="w-8 h-8 rounded-lg bg-indigo-50 dark:bg-indigo-950/50 flex items-center justify-center text-indigo-600 dark:text-indigo-400">
             <CalendarIcon className="w-4.5 h-4.5" />
           </div>
-          <h3 className="font-extrabold text-slate-800 text-sm tracking-tight">Workspace Calendar</h3>
-          <span className="text-xs font-bold text-slate-400 bg-slate-50 border border-slate-100 px-3 py-1 rounded-full">
+          <h3 className="font-extrabold text-slate-850 dark:text-slate-100 text-sm tracking-tight">Workspace Calendar</h3>
+          <span className="text-xs font-bold text-slate-400 dark:text-slate-550 bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 px-3 py-1 rounded-full">
             {monthNames[month]} {year}
           </span>
         </div>
+        
         <div className="flex items-center gap-3">
-          <div className="flex items-center gap-1 bg-slate-50 rounded-xl p-1 border border-slate-100 shrink-0">
+          {/* Add Custom Calendar Event Button */}
+          <button
+            onClick={() => setIsAddEventModalOpen(true)}
+            className="bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold px-4 py-2.5 rounded-xl flex items-center gap-1.5 shadow-sm cursor-pointer transition-all"
+          >
+            <Plus className="w-4 h-4" />
+            <span>Add Event</span>
+          </button>
+
+          {/* Month selector switches */}
+          <div className="flex items-center gap-1 bg-slate-50 dark:bg-slate-800 rounded-xl p-1 border border-slate-100 dark:border-slate-700 shrink-0">
             <button
               onClick={handlePrevMonth}
-              className="text-slate-400 hover:text-slate-700 transition-colors p-1.5 rounded-lg hover:bg-white cursor-pointer"
+              className="text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 transition-colors p-1.5 rounded-lg hover:bg-white dark:hover:bg-slate-900 cursor-pointer"
             >
               <ChevronLeft className="w-4 h-4" />
             </button>
             <button
               onClick={handleNextMonth}
-              className="text-slate-400 hover:text-slate-700 transition-colors p-1.5 rounded-lg hover:bg-white cursor-pointer"
+              className="text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 transition-colors p-1.5 rounded-lg hover:bg-white dark:hover:bg-slate-900 cursor-pointer"
             >
               <ChevronRight className="w-4 h-4" />
             </button>
@@ -162,52 +279,62 @@ export default function CalendarPage() {
       </div>
 
       {loading ? (
-        /* Loading skeleton spinner */
         <div className="h-[500px] flex flex-col items-center justify-center space-y-3">
-          <Loader2 className="w-8 h-8 animate-spin text-indigo-650" />
-          <p className="text-xs text-slate-400 font-semibold italic">Aggregating project calendar events...</p>
+          <Loader2 className="w-8 h-8 animate-spin text-indigo-600 dark:text-indigo-400" />
+          <p className="text-xs text-slate-400 dark:text-slate-500 font-semibold italic">Aggregating workspace calendar events...</p>
         </div>
       ) : (
-        /* Dynamic Month Grid Table */
+        /* Month Grid Table */
         <div className="flex-1 flex flex-col overflow-x-auto min-w-[700px]">
           {/* Days of Week header row */}
-          <div className="grid grid-cols-7 text-center border-b border-slate-100 pb-2">
+          <div className="grid grid-cols-7 text-center border-b border-slate-100 dark:border-slate-850 pb-2">
             {daysOfWeek.map((day) => (
-              <span key={day} className="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest">
+              <span key={day} className="text-[10px] font-extrabold text-slate-400 dark:text-slate-500 uppercase tracking-widest">
                 {day}
               </span>
             ))}
           </div>
 
-          {/* 35/42 days Month Grid cells */}
-          <div className="grid grid-cols-7 border-l border-t border-slate-50">
+          {/* Grid Cell days */}
+          <div className="grid grid-cols-7 border-l border-t border-slate-50 dark:border-slate-850">
             {daysGrid.map((cell, index) => {
               const dayTasks = taskMap[cell.dateKey] || [];
+              const dayEvents = eventMap[cell.dateKey] || [];
+              const totalItems = dayTasks.length + dayEvents.length;
+
               return (
                 <div
                   key={index}
                   className={cn(
-                    "min-h-[110px] border-r border-b border-slate-50 p-2 flex flex-col gap-1 transition-all overflow-hidden text-left",
-                    cell.isCurrentMonth ? "bg-white" : "bg-slate-50/20"
+                    "min-h-[110px] border-r border-b border-slate-50 dark:border-slate-850 p-2 flex flex-col gap-1 transition-all overflow-hidden text-left",
+                    cell.isCurrentMonth ? "bg-white dark:bg-slate-900" : "bg-slate-50/20 dark:bg-slate-950/20"
                   )}
                 >
-                  {/* Day cell header row containing indicator badge and dots */}
                   <div className="flex items-center justify-between">
                     <span className={cn(
                       "w-6 h-6 rounded-full text-xs font-black flex items-center justify-center select-none shadow-xs",
                       cell.isToday 
                         ? "bg-indigo-600 text-white animate-scale-up" 
                         : cell.isCurrentMonth 
-                          ? "text-slate-700" 
-                          : "text-slate-300"
+                          ? "text-slate-700 dark:text-slate-200" 
+                          : "text-slate-300 dark:text-slate-600"
                     )}>
                       {cell.day}
                     </span>
 
                     {/* Deadline dot indicators */}
-                    {dayTasks.length > 0 && (
+                    {totalItems > 0 && (
                       <div className="flex gap-1 pr-1 items-center">
-                        {dayTasks.slice(0, 3).map((t) => (
+                        {/* Custom Event Dot Indicator (Purple) */}
+                        {dayEvents.slice(0, 2).map((e) => (
+                          <span 
+                            key={e.id}
+                            title={`Event: ${e.title}`}
+                            className="w-1.5 h-1.5 rounded-full bg-purple-500 animate-scale-up"
+                          />
+                        ))}
+                        {/* Task Dot Indicators */}
+                        {dayTasks.slice(0, 2).map((t) => (
                           <span
                             key={t.id}
                             title={`${t.name} (${t.priority})`}
@@ -223,17 +350,25 @@ export default function CalendarPage() {
                             )}
                           />
                         ))}
-                        {dayTasks.length > 3 && (
-                          <span className="text-[8px] font-bold text-slate-400 leading-none" title={`${dayTasks.length - 3} more tasks`}>
-                            +
-                          </span>
-                        )}
                       </div>
                     )}
                   </div>
 
-                  {/* Day cell tasks badges list */}
+                  {/* Day cell list item badges */}
                   <div className="flex-1 overflow-y-auto space-y-1 mt-1 pr-0.5 max-h-[80px]">
+                    {/* Render Custom Events */}
+                    {dayEvents.map((evt) => (
+                      <div
+                        key={evt.id}
+                        onClick={() => setSelectedEvent(evt)}
+                        className="bg-purple-50 hover:bg-purple-100/50 dark:bg-purple-950/20 text-purple-700 dark:text-purple-400 border border-purple-100 dark:border-purple-900/30 rounded-lg px-1.5 py-1 text-[9px] font-extrabold leading-tight truncate cursor-pointer transition-all shadow-xs block text-left flex items-center gap-1"
+                      >
+                        <span className="w-1 h-1 bg-purple-500 rounded-full shrink-0" />
+                        <span className="truncate">{evt.title}</span>
+                      </div>
+                    ))}
+
+                    {/* Render Tasks */}
                     {dayTasks.map((task) => {
                       const isHigh = task.priority === "HIGH";
                       const isMedium = task.priority === "MEDIUM";
@@ -246,12 +381,12 @@ export default function CalendarPage() {
                           className={cn(
                             "border rounded-lg px-1.5 py-1 text-[9px] font-bold leading-tight truncate cursor-pointer transition-all shadow-xs block text-left",
                             isCompleted
-                              ? "bg-emerald-50 text-emerald-700 border-emerald-100 hover:bg-emerald-100/50 line-through opacity-75"
+                              ? "bg-emerald-50 dark:bg-emerald-950/20 text-emerald-700 dark:text-emerald-400 border-emerald-100 dark:border-emerald-900/30 hover:bg-emerald-100/50 line-through opacity-75"
                               : isHigh
-                                ? "bg-red-50 text-red-700 border-red-100 hover:bg-red-100/50"
+                                ? "bg-red-50 dark:bg-red-950/20 text-red-700 dark:text-red-400 border-red-100 dark:border-red-900/30 hover:bg-red-100/50"
                                 : isMedium
-                                  ? "bg-amber-50 text-amber-700 border-amber-100 hover:bg-amber-100/50"
-                                  : "bg-indigo-50 text-indigo-700 border-indigo-100 hover:bg-indigo-100/50"
+                                  ? "bg-amber-50 dark:bg-amber-950/20 text-amber-700 dark:text-amber-400 border-amber-100 dark:border-amber-900/30 hover:bg-amber-100/50"
+                                  : "bg-indigo-50 dark:bg-indigo-950/20 text-indigo-700 dark:text-indigo-400 border-indigo-100 dark:border-indigo-900/30 hover:bg-indigo-100/50"
                           )}
                         >
                           {task.name}
@@ -267,36 +402,32 @@ export default function CalendarPage() {
         </div>
       )}
 
-      {/* Task Details Custom POP Card Modal overlay */}
+      {/* Task Details Popup Overlay Card */}
       {selectedTask && (
         <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center z-50 p-4 animate-fade-in">
-          <div className="bg-white rounded-3xl p-6 max-w-md w-full shadow-2xl border border-slate-100 flex flex-col space-y-5 animate-scale-up text-left">
-            {/* Header section with category indicators */}
+          <div className="bg-white dark:bg-slate-900 rounded-3xl p-6 max-w-md w-full shadow-2xl border border-slate-100 dark:border-slate-800 flex flex-col space-y-5 animate-scale-up text-left">
             <div className="flex items-start justify-between">
               <div className="space-y-1">
-                <span className="text-[10px] font-extrabold text-indigo-650 bg-indigo-50 border border-indigo-100 px-3 py-1 rounded-full">
+                <span className="text-[10px] font-extrabold text-indigo-600 bg-indigo-50 dark:bg-indigo-950/50 border border-indigo-100 dark:border-indigo-900/30 px-3 py-1 rounded-full">
                   Project: {selectedTask.projectName}
                 </span>
-                <h4 className="text-sm font-black text-slate-850 pt-2 leading-tight select-text">
+                <h4 className="text-sm font-black text-slate-850 dark:text-slate-100 pt-2 leading-tight select-text">
                   {selectedTask.name}
                 </h4>
               </div>
               <button
                 onClick={() => setSelectedTask(null)}
-                className="p-1 hover:bg-slate-100 rounded-lg text-slate-400 hover:text-slate-700 cursor-pointer shrink-0"
+                className="p-1 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg text-slate-400 hover:text-slate-700 cursor-pointer shrink-0"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            {/* Description Text */}
-            <div className="text-xs font-semibold text-slate-500 leading-relaxed border-t border-b border-slate-50 py-3 select-text">
-              {selectedTask.description || <span className="italic text-slate-300">No task description added.</span>}
+            <div className="text-xs font-semibold text-slate-500 dark:text-slate-400 leading-relaxed border-t border-b border-slate-50 dark:border-slate-850 py-3 select-text whitespace-pre-wrap">
+              {selectedTask.description || <span className="italic text-slate-300 dark:text-slate-655">No task description added.</span>}
             </div>
 
-            {/* Attributes Grid List */}
             <div className="grid grid-cols-2 gap-4">
-              {/* Attribute 1: Priority */}
               <div className="flex items-center gap-2">
                 <AlertCircle className="w-4 h-4 text-slate-400 shrink-0" />
                 <div className="text-left">
@@ -307,78 +438,146 @@ export default function CalendarPage() {
                       ? "text-red-600" 
                       : selectedTask.priority === "MEDIUM" 
                         ? "text-amber-500" 
-                        : "text-blue-500"
+                        : "text-indigo-500"
                   )}>
                     {selectedTask.priority}
                   </span>
                 </div>
               </div>
 
-              {/* Attribute 2: Status */}
               <div className="flex items-center gap-2">
                 <CheckCircle2 className="w-4 h-4 text-slate-400 shrink-0" />
                 <div className="text-left">
                   <span className="text-[9px] font-extrabold text-slate-400 uppercase tracking-wide block">Status</span>
-                  <span className="text-[10px] font-bold text-slate-700">{selectedTask.status.replace("_", " ")}</span>
-                </div>
-              </div>
-
-              {/* Attribute 3: Due Date */}
-              <div className="flex items-center gap-2">
-                <Clock className="w-4 h-4 text-slate-400 shrink-0" />
-                <div className="text-left">
-                  <span className="text-[9px] font-extrabold text-slate-400 uppercase tracking-wide block">Due Date</span>
-                  <span className="text-[10px] font-bold text-slate-700">
-                    {selectedTask.dueDate ? selectedTask.dueDate.split("T")[0] : "No date"}
+                  <span className="text-[10px] font-extrabold text-slate-700 dark:text-slate-300 uppercase tracking-wider">
+                    {selectedTask.status.replace("_", " ")}
                   </span>
                 </div>
               </div>
-
-              {/* Attribute 4: Assignee */}
-              <div className="flex items-center gap-2">
-                <User className="w-4 h-4 text-slate-400 shrink-0" />
-                <div className="text-left">
-                  <span className="text-[9px] font-extrabold text-slate-400 uppercase tracking-wide block">Assignee</span>
-                  <span className="text-[10px] font-bold text-slate-700">{selectedTask.assignee || "Unassigned"}</span>
-                </div>
-              </div>
             </div>
-
-            {/* Bottom Actions Row */}
-            <div className="flex justify-end pt-2 shrink-0">
-              <button
-                onClick={() => setSelectedTask(null)}
-                className="px-4.5 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-xl transition-all cursor-pointer"
-              >
-                Close Details
-              </button>
-            </div>
-
           </div>
         </div>
       )}
 
-    </div>
-  );
-}
+      {/* Custom Event Details Popup Overlay Card */}
+      {selectedEvent && (
+        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center z-50 p-4 animate-fade-in">
+          <div className="bg-white dark:bg-slate-900 rounded-3xl p-6 max-w-md w-full shadow-2xl border border-slate-100 dark:border-slate-800 flex flex-col space-y-5 animate-scale-up text-left">
+            <div className="flex items-start justify-between">
+              <div className="space-y-1">
+                <span className="text-[10px] font-extrabold text-purple-650 bg-purple-50 dark:bg-purple-950/50 border border-purple-100 dark:border-purple-900/30 px-3 py-1 rounded-full">
+                  Workspace Event
+                </span>
+                <h4 className="text-sm font-black text-slate-850 dark:text-slate-100 pt-2 leading-tight select-text">
+                  {selectedEvent.title}
+                </h4>
+              </div>
+              <button
+                onClick={() => setSelectedEvent(null)}
+                className="p-1 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg text-slate-400 hover:text-slate-700 cursor-pointer shrink-0"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
 
-// Minimal local Close icon mock fallback
-function X(props: any) {
-  return (
-    <svg 
-      xmlns="http://www.w3.org/2000/svg" 
-      width="24" 
-      height="24" 
-      viewBox="0 0 24 24" 
-      fill="none" 
-      stroke="currentColor" 
-      strokeWidth="2" 
-      strokeLinecap="round" 
-      strokeLinejoin="round" 
-      {...props}
-    >
-      <path d="M18 6 6 18" />
-      <path d="m6 6 12 12" />
-    </svg>
+            <div className="text-xs font-semibold text-slate-500 dark:text-slate-400 leading-relaxed border-t border-b border-slate-50 dark:border-slate-855 py-3 select-text whitespace-pre-wrap">
+              {selectedEvent.description || <span className="italic text-slate-300 dark:text-slate-655">No event description added.</span>}
+            </div>
+
+            <div className="flex items-center justify-between gap-4 pt-2">
+              <div className="flex items-center gap-2">
+                <Clock className="w-4 h-4 text-slate-400 shrink-0" />
+                <div className="text-left">
+                  <span className="text-[9px] font-extrabold text-slate-400 uppercase tracking-wide block">Event Date</span>
+                  <span className="text-[10px] font-bold text-slate-700 dark:text-slate-300">
+                    {new Date(selectedEvent.date).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
+                  </span>
+                </div>
+              </div>
+              
+              <button
+                onClick={() => handleDeleteEvent(selectedEvent.id)}
+                className="text-red-500 hover:text-red-650 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/20 text-xs font-bold py-1.5 px-3 rounded-lg flex items-center gap-1 cursor-pointer transition-colors"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                <span>Delete Event</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Add Custom Calendar Event Modal popup */}
+      {isAddEventModalOpen && (
+        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center z-50 p-4">
+          <form 
+            onSubmit={handleAddEventSubmit}
+            className="bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-3xl p-6 shadow-2xl max-w-md w-full space-y-4 animate-fade-in"
+          >
+            <h3 className="font-extrabold text-slate-800 dark:text-slate-100 text-sm tracking-tight uppercase text-left">Add Custom Event</h3>
+            
+            {/* Event Title */}
+            <div className="space-y-1.5 text-left">
+              <label className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider block px-1">Event Title</label>
+              <input 
+                type="text" 
+                value={newEventTitle}
+                onChange={(e) => setNewEventTitle(e.target.value)}
+                placeholder="e.g. Project Seminar, Team Dinner"
+                className="w-full text-xs font-semibold text-slate-700 dark:text-slate-200 bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-2xl py-3 px-4 outline-none focus:bg-white dark:focus:bg-slate-900 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-100 transition-all"
+                required
+              />
+            </div>
+
+            {/* Event Description */}
+            <div className="space-y-1.5 text-left">
+              <label className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider block px-1">Description</label>
+              <textarea 
+                value={newEventDesc}
+                onChange={(e) => setNewEventDesc(e.target.value)}
+                placeholder="Details about this seminar or event..."
+                rows={3}
+                className="w-full text-xs font-semibold text-slate-700 dark:text-slate-200 bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-2xl py-3 px-4 outline-none focus:bg-white dark:focus:bg-slate-900 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-100 transition-all resize-none"
+              />
+            </div>
+
+            {/* Event Date */}
+            <div className="space-y-1.5 text-left">
+              <label className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider block px-1">Event Date</label>
+              <input 
+                type="date" 
+                value={newEventDate}
+                onChange={(e) => setNewEventDate(e.target.value)}
+                className="w-full text-xs font-semibold text-slate-700 dark:text-slate-200 bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-2xl py-3 px-4 outline-none focus:bg-white dark:focus:bg-slate-900 focus:border-indigo-500 transition-all cursor-pointer"
+                required
+              />
+            </div>
+
+            {/* Form actions */}
+            <div className="flex items-center justify-end gap-2.5 pt-2">
+              <button 
+                type="button"
+                onClick={() => {
+                  setIsAddEventModalOpen(false);
+                  setNewEventTitle("");
+                  setNewEventDesc("");
+                  setNewEventDate("");
+                }}
+                className="text-xs font-bold text-slate-400 dark:text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 px-4 py-2 cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button 
+                type="submit"
+                className="bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-extrabold px-4.5 py-2.5 rounded-xl transition-colors shadow-sm cursor-pointer"
+              >
+                Save Event
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
+
+    </div>
   );
 }

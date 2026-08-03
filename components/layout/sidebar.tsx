@@ -314,7 +314,7 @@ export default function Sidebar({ user, workspace, projects, onAddProject, onClo
               </button>
               <button 
                 onClick={handleInviteConfirm}
-                className="bg-indigo-650 text-white text-xs font-extrabold px-4.5 py-2.5 rounded-xl hover:bg-indigo-700 transition-colors shadow-sm cursor-pointer"
+                className="bg-indigo-600 text-white text-xs font-extrabold px-4.5 py-2.5 rounded-xl hover:bg-indigo-700 transition-colors shadow-sm cursor-pointer"
               >
                 Send Invite
               </button>

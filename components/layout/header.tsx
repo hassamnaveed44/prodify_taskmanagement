@@ -42,6 +42,42 @@ export default function Header({ user, workspace, workspaces, onMenuClick }: Hea
   const [loggingOut, setLoggingOut] = useState(false);
   const [switching, setSwitching] = useState<string | null>(null);
 
+  // Notifications states and references
+  const [notifications, setNotifications] = useState<Array<{ id: string; message: string; read: boolean; time: string }>>([]);
+  const [notifDropdownOpen, setNotifDropdownOpen] = useState(false);
+  const notifRef = useRef<HTMLDivElement | null>(null);
+
+  const loadNotifications = () => {
+    try {
+      const saved = localStorage.getItem("prodify_notifications");
+      setNotifications(saved ? JSON.parse(saved) : []);
+    } catch (e) {
+      console.error("Failed to load notifications:", e);
+    }
+  };
+
+  useEffect(() => {
+    loadNotifications();
+    window.addEventListener("prodify-notification-update", loadNotifications);
+    return () => window.removeEventListener("prodify-notification-update", loadNotifications);
+  }, []);
+
+  const handleMarkAllAsRead = () => {
+    const updated = notifications.map((n) => ({ ...n, read: true }));
+    setNotifications(updated);
+    localStorage.setItem("prodify_notifications", JSON.stringify(updated));
+    window.dispatchEvent(new Event("prodify-notification-update"));
+  };
+
+  const handleMarkAsRead = (id: string) => {
+    const updated = notifications.map((n) => (n.id === id ? { ...n, read: true } : n));
+    setNotifications(updated);
+    localStorage.setItem("prodify_notifications", JSON.stringify(updated));
+    window.dispatchEvent(new Event("prodify-notification-update"));
+  };
+
+  const unreadCount = notifications.filter((n) => !n.read).length;
+
   // Search states and references
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState<{
@@ -52,11 +88,14 @@ export default function Header({ user, workspace, workspaces, onMenuClick }: Hea
   const [searchFocused, setSearchFocused] = useState(false);
   const searchRef = useRef<HTMLDivElement | null>(null);
 
-  // Close search dropdown on clicking outside
+  // Close search and notifications dropdown on clicking outside
   useEffect(() => {
     const handleOutsideClick = (e: MouseEvent) => {
       if (searchRef.current && !searchRef.current.contains(e.target as Node)) {
         setSearchFocused(false);
+      }
+      if (notifRef.current && !notifRef.current.contains(e.target as Node)) {
+        setNotifDropdownOpen(false);
       }
     };
     document.addEventListener("mousedown", handleOutsideClick);
@@ -243,10 +282,68 @@ export default function Header({ user, workspace, workspaces, onMenuClick }: Hea
         </button>
 
         {/* Notifications */}
-        <button className="text-slate-400 hover:text-slate-650 transition-colors p-1.5 rounded-full hover:bg-slate-50 dark:hover:bg-slate-800/50 relative">
-          <Bell className="w-5.5 h-5.5" />
-          <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-indigo-650 rounded-full ring-2 ring-white dark:ring-slate-900"></span>
-        </button>
+        <div className="relative" ref={notifRef}>
+          <button 
+            onClick={() => setNotifDropdownOpen(!notifDropdownOpen)}
+            className="text-slate-400 hover:text-slate-650 dark:hover:text-slate-200 transition-colors p-1.5 rounded-full hover:bg-slate-50 dark:hover:bg-slate-800/50 relative cursor-pointer"
+          >
+            <Bell className="w-5.5 h-5.5" />
+            {unreadCount > 0 && (
+              <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-red-500 rounded-full ring-2 ring-white dark:ring-slate-900"></span>
+            )}
+          </button>
+
+          {notifDropdownOpen && (
+            <>
+              <div 
+                className="fixed inset-0 z-30" 
+                onClick={() => setNotifDropdownOpen(false)}
+              />
+              <div className="absolute right-0 mt-2.5 w-72 bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-3xl p-3.5 shadow-2xl z-45 animate-fade-in space-y-3 text-left">
+                <div className="flex items-center justify-between border-b border-slate-50 dark:border-slate-800 pb-2">
+                  <h4 className="font-bold text-xs text-slate-800 dark:text-slate-250 uppercase tracking-wider">Notifications</h4>
+                  {unreadCount > 0 && (
+                    <button 
+                      onClick={handleMarkAllAsRead}
+                      className="text-[10px] font-bold text-indigo-600 dark:text-indigo-400 hover:underline cursor-pointer"
+                    >
+                      Mark all as read
+                    </button>
+                  )}
+                </div>
+
+                <div className="space-y-2 max-h-[250px] overflow-y-auto pr-1">
+                  {notifications.length === 0 ? (
+                    <p className="text-xs text-slate-400 dark:text-slate-500 italic py-4 text-center">
+                      No notifications yet.
+                    </p>
+                  ) : (
+                    notifications.map((notif) => (
+                      <div 
+                        key={notif.id}
+                        onClick={() => handleMarkAsRead(notif.id)}
+                        className={cn(
+                          "p-2.5 rounded-xl border transition-all text-xs font-semibold text-slate-700 dark:text-slate-300 relative cursor-pointer flex flex-col gap-1 text-left",
+                          notif.read 
+                            ? "bg-white dark:bg-slate-900 border-slate-50 dark:border-slate-800 opacity-70"
+                            : "bg-indigo-50/20 dark:bg-indigo-950/20 border-indigo-100/50 dark:border-indigo-900/30"
+                        )}
+                      >
+                        {!notif.read && (
+                          <span className="absolute top-2.5 right-2.5 w-1.5 h-1.5 bg-red-500 rounded-full"></span>
+                        )}
+                        <p className="pr-4 leading-normal font-semibold text-slate-700 dark:text-slate-200">{notif.message}</p>
+                        <span className="text-[9px] text-slate-400 dark:text-slate-500 font-bold">
+                          {new Date(notif.time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                        </span>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+            </>
+          )}
+        </div>
 
         {/* User Info & Avatar Dropdown Trigger */}
         <div className="relative">

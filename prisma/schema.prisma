@@ -51,9 +51,11 @@ model Workspace {
   updatedAt DateTime          @updatedAt
 
   // Relations
-  members   WorkspaceMember[]
-  projects  Project[]
-  teams     Team[]
+  members        WorkspaceMember[]
+  projects       Project[]
+  teams          Team[]
+  calendarEvents CalendarEvent[]
+  dailyGoals     DailyGoal[]
 }
 
 enum WorkspaceRole {
@@ -244,4 +246,28 @@ model DirectMessage {
   createdAt  DateTime @default(now())
 
   @@index([senderId, receiverId])
+}
+
+// Custom Calendar Events (independent of projects)
+model CalendarEvent {
+  id          String    @id @default(uuid())
+  title       String
+  description String?
+  date        DateTime
+  workspaceId String
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+}
+
+// Daily Goals checklist for today
+model DailyGoal {
+  id          String    @id @default(uuid())
+  title       String
+  completed   Boolean   @default(false)
+  date        DateTime  @default(now())
+  workspaceId String
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
 }
