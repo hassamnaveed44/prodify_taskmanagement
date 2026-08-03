@@ -44,8 +44,10 @@ export default function DashboardLayout({
   const notifiedDeadlinesRef = useRef<Record<string, boolean>>({});
 
   const addWebNotification = (message: string) => {
+    if (!user || !workspace) return;
     try {
-      const saved = localStorage.getItem("prodify_notifications");
+      const storageKey = `prodify_notifications_${user.id}_${workspace.id}`;
+      const saved = localStorage.getItem(storageKey);
       const list = saved ? JSON.parse(saved) : [];
       const newNotification = {
         id: Math.random().toString(36).substring(2, 9),
@@ -54,7 +56,7 @@ export default function DashboardLayout({
         time: new Date().toISOString()
       };
       list.unshift(newNotification);
-      localStorage.setItem("prodify_notifications", JSON.stringify(list.slice(0, 50)));
+      localStorage.setItem(storageKey, JSON.stringify(list.slice(0, 50)));
       window.dispatchEvent(new Event("prodify-notification-update"));
     } catch (e) {
       console.error("Failed to save notification:", e);

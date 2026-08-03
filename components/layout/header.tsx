@@ -48,8 +48,10 @@ export default function Header({ user, workspace, workspaces, onMenuClick }: Hea
   const notifRef = useRef<HTMLDivElement | null>(null);
 
   const loadNotifications = () => {
+    if (!user || !workspace) return;
     try {
-      const saved = localStorage.getItem("prodify_notifications");
+      const storageKey = `prodify_notifications_${user.id}_${workspace.id}`;
+      const saved = localStorage.getItem(storageKey);
       setNotifications(saved ? JSON.parse(saved) : []);
     } catch (e) {
       console.error("Failed to load notifications:", e);
@@ -60,19 +62,23 @@ export default function Header({ user, workspace, workspaces, onMenuClick }: Hea
     loadNotifications();
     window.addEventListener("prodify-notification-update", loadNotifications);
     return () => window.removeEventListener("prodify-notification-update", loadNotifications);
-  }, []);
+  }, [user, workspace]);
 
   const handleMarkAllAsRead = () => {
+    if (!user || !workspace) return;
+    const storageKey = `prodify_notifications_${user.id}_${workspace.id}`;
     const updated = notifications.map((n) => ({ ...n, read: true }));
     setNotifications(updated);
-    localStorage.setItem("prodify_notifications", JSON.stringify(updated));
+    localStorage.setItem(storageKey, JSON.stringify(updated));
     window.dispatchEvent(new Event("prodify-notification-update"));
   };
 
   const handleMarkAsRead = (id: string) => {
+    if (!user || !workspace) return;
+    const storageKey = `prodify_notifications_${user.id}_${workspace.id}`;
     const updated = notifications.map((n) => (n.id === id ? { ...n, read: true } : n));
     setNotifications(updated);
-    localStorage.setItem("prodify_notifications", JSON.stringify(updated));
+    localStorage.setItem(storageKey, JSON.stringify(updated));
     window.dispatchEvent(new Event("prodify-notification-update"));
   };
 
