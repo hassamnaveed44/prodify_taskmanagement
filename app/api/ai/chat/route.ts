@@ -124,7 +124,7 @@ Here is what your live workspace database context contains right now:
 *   **Total Tasks**: ${dbTasks.length}
 
 *Mock Response Preview:*
-Based on your database, you have ${dbTasks.filter(t => t.status !== "COMPLETED").length} pending tasks. Try resolving your highest priority item in the project: **"${dbProjects[0]?.name || 'N/A'}"**!`;
+Based on your database, you have ${dbTasks.filter((t: any) => t.status !== "COMPLETED").length} pending tasks. Try resolving your highest priority item in the project: **"${dbProjects[0]?.name || 'N/A'}"**!`;
               
               accumulatedText = warningMsg;
               controller.enqueue(encoder.encode(`data: ${JSON.stringify({ text: warningMsg })}\n\n`));

@@ -6,6 +6,7 @@
     "dev": "node server.js",
     "build": "next build",
     "postbuild": "prisma generate",
+    "postinstall": "prisma generate",
     "start": "node server.js",
     "lint": "eslint",
     "migrate:deploy": "prisma migrate deploy"
