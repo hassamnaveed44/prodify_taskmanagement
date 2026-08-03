@@ -18,9 +18,9 @@ const app = next({ dev, hostname, port });
 const handle = app.getRequestHandler();
 
 // Configure Prisma 7 driver adapter to connect to database
-const connectionString = process.env.DATABASE_URL;
+const connectionString = process.env.DATABASE_URL || process.env.NEON_DATABASE_URL;
 if (!connectionString) {
-  throw new Error("DATABASE_URL is not defined in environment variables.");
+  throw new Error("DATABASE_URL or NEON_DATABASE_URL is not defined in environment variables.");
 }
 const pool = new Pool({ connectionString });
 const adapter = new PrismaPg(pool);
