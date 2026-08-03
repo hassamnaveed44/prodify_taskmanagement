@@ -43,6 +43,24 @@ export default function DashboardLayout({
   // Ref to track notified task deadlines to avoid spamming
   const notifiedDeadlinesRef = useRef<Record<string, boolean>>({});
 
+  const addWebNotification = (message: string) => {
+    try {
+      const saved = localStorage.getItem("prodify_notifications");
+      const list = saved ? JSON.parse(saved) : [];
+      const newNotification = {
+        id: Math.random().toString(36).substring(2, 9),
+        message,
+        read: false,
+        time: new Date().toISOString()
+      };
+      list.unshift(newNotification);
+      localStorage.setItem("prodify_notifications", JSON.stringify(list.slice(0, 50)));
+      window.dispatchEvent(new Event("prodify-notification-update"));
+    } catch (e) {
+      console.error("Failed to save notification:", e);
+    }
+  };
+
   // Fetch logged-in user profile details on load
   const fetchProfileData = () => {
     fetch("/api/auth/me")
@@ -88,12 +106,12 @@ export default function DashboardLayout({
       try {
         const packet = JSON.parse(event.data);
         if (packet.type === "notification" && packet.message) {
-          toast.info(packet.message);
+          addWebNotification(packet.message);
         } else if (packet.type === "dm" && packet.message) {
           if (packet.message.senderId !== user.id) {
             const isInboxPage = window.location.pathname === "/inbox";
             if (!isInboxPage) {
-              toast.info(`💬 Message from ${packet.message.authorName}: "${packet.message.content}"`);
+              addWebNotification(`💬 Message from ${packet.message.authorName}: "${packet.message.content}"`);
             }
           }
         }
@@ -129,7 +147,7 @@ export default function DashboardLayout({
             if (diffHours > 0 && diffHours <= 24) {
               if (!notifiedDeadlinesRef.current[task.id]) {
                 const hoursLeft = Math.max(1, Math.round(diffHours));
-                toast.error(`⏰ Deadline warning: Task "${task.name}" is due in ${hoursLeft} hours!`);
+                addWebNotification(`⏰ Deadline warning: Task "${task.name}" is due in ${hoursLeft} hours!`);
                 notifiedDeadlinesRef.current[task.id] = true;
               }
             }
