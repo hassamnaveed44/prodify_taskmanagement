@@ -60,9 +60,23 @@ app.prepare().then(() => {
     }
   });
 
-  // Initialize WebSocket Server on the same HTTP server
-  const wss = new WebSocketServer({ server });
-  console.log(`> ⚡ WebSocket Server integrated with HTTP server`);
+  // Initialize WebSocket Server without auto-intercepting all upgrades
+  const wss = new WebSocketServer({ noServer: true });
+  console.log(`> ⚡ WebSocket Server initialized with manual upgrade handling`);
+
+  server.on("upgrade", (request, socket, head) => {
+    const parsedUrl = parse(request.url, true);
+    const { pathname } = parsedUrl;
+    
+    // Let Next.js handle its own development upgrades (webpack-hmr)
+    if (pathname && pathname.startsWith("/_next/")) {
+      return;
+    }
+    
+    wss.handleUpgrade(request, socket, head, (ws) => {
+      wss.emit("connection", ws, request);
+    });
+  });
 
   // Store globally so REST endpoints can query it
   global.wss = wss;
@@ -154,6 +168,19 @@ app.prepare().then(() => {
           wss.clients.forEach((client) => {
             if (client.readyState === 1 && client.userId === packet.receiverId) {
               client.send(typingBroadcast);
+            }
+          });
+        }
+        
+        // Handle workspace notification broadcasts from clients
+        else if (packet.type === "notification" && packet.workspaceId && packet.message) {
+          const broadcastMsg = JSON.stringify({
+            type: "notification",
+            message: packet.message,
+          });
+          wss.clients.forEach((client) => {
+            if (client.readyState === 1 && client.workspaceId === packet.workspaceId) {
+              client.send(broadcastMsg);
             }
           });
         }

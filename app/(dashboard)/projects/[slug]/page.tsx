@@ -134,6 +134,21 @@ export default function ProjectDetailPage({ params }: ProjectPageProps) {
       if (!res.ok) {
         throw new Error("Failed to update task fields on server.");
       }
+
+      const task = tasks.find(t => t.id === taskId);
+      const taskName = task?.name || "Task";
+      let message = `📝 Task "${taskName}" details were updated by a teammate.`;
+      if (fields.status !== undefined) {
+        const newStatus = fields.status;
+        const statusLabel = newStatus === 'COMPLETED' ? 'Completed' : newStatus === 'IN_PROGRESS' ? 'In Progress' : 'To Do';
+        message = `🔄 Task "${taskName}" status was updated to "${statusLabel}" by a teammate.`;
+      } else if (fields.priority !== undefined) {
+        message = `⚡ Task "${taskName}" priority was set to "${fields.priority}" by a teammate.`;
+      }
+      
+      window.dispatchEvent(new CustomEvent("prodify-broadcast-notification", {
+        detail: { message }
+      }));
     } catch (error) {
       console.error(error);
       fetchProjectData(); // Revert on fail
@@ -144,10 +159,15 @@ export default function ProjectDetailPage({ params }: ProjectPageProps) {
   const handleDeleteTask = async (taskId: string) => {
     try {
       setTasks(prev => prev.filter(t => t.id !== taskId));
+      const taskName = tasks.find(t => t.id === taskId)?.name || "Task";
       const res = await fetch(`/api/tasks/${taskId}`, {
         method: "DELETE",
       });
       if (!res.ok) throw new Error();
+
+      window.dispatchEvent(new CustomEvent("prodify-broadcast-notification", {
+        detail: { message: `❌ Task "${taskName}" was deleted by a teammate.` }
+      }));
     } catch (error) {
       console.error("Failed to delete task:", error);
       fetchProjectData();
@@ -174,6 +194,9 @@ export default function ProjectDetailPage({ params }: ProjectPageProps) {
       if (!res.ok) throw new Error();
 
       const data = await res.json();
+      window.dispatchEvent(new CustomEvent("prodify-broadcast-notification", {
+        detail: { message: `🆕 New task "${newTaskName.trim()}" was created by a teammate.` }
+      }));
       setTasks(prev => [...prev, data.task]);
       setNewTaskName("");
       setAddingTaskForSection(null);

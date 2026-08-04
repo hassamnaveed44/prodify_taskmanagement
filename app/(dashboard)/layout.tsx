@@ -122,7 +122,23 @@ export default function DashboardLayout({
       }
     };
 
+    const handleBroadcastRequest = (e: Event) => {
+      const customEvent = e as CustomEvent;
+      if (socket.readyState === WebSocket.OPEN && customEvent.detail?.message) {
+        socket.send(
+          JSON.stringify({
+            type: "notification",
+            workspaceId: workspace.id,
+            message: customEvent.detail.message,
+          })
+        );
+      }
+    };
+
+    window.addEventListener("prodify-broadcast-notification", handleBroadcastRequest);
+
     return () => {
+      window.removeEventListener("prodify-broadcast-notification", handleBroadcastRequest);
       socket.close();
     };
   }, [user, workspace, toast]);

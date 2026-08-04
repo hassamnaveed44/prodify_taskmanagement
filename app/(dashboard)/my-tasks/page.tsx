@@ -206,6 +206,11 @@ export default function MyTasksPage() {
 
       if (res.ok) {
         toast.show("success", `Task status updated successfully.`);
+        const taskName = tasks.find(t => t.id === taskId)?.name || "Task";
+        const statusLabel = newStatus === 'COMPLETED' ? 'Completed' : newStatus === 'IN_PROGRESS' ? 'In Progress' : 'To Do';
+        window.dispatchEvent(new CustomEvent("prodify-broadcast-notification", {
+          detail: { message: `🔄 Task "${taskName}" status was updated to "${statusLabel}" by a teammate.` }
+        }));
         setTasks(prev => prev.map(t => t.id === taskId ? { ...t, status: newStatus } : t));
         if (selectedTask && selectedTask.id === taskId) {
           setSelectedTask(prev => prev ? { ...prev, status: newStatus } : null);
@@ -239,6 +244,10 @@ export default function MyTasksPage() {
 
       if (res.ok) {
         toast.show("success", "Task deleted successfully.");
+        const taskName = tasks.find(t => t.id === taskIdToDelete)?.name || "Task";
+        window.dispatchEvent(new CustomEvent("prodify-broadcast-notification", {
+          detail: { message: `❌ Task "${taskName}" was deleted by a teammate.` }
+        }));
         setTasks(prev => prev.filter(t => t.id !== taskIdToDelete));
         if (selectedTask && selectedTask.id === taskIdToDelete) {
           setSelectedTask(null);
@@ -288,6 +297,9 @@ export default function MyTasksPage() {
 
       if (res.ok) {
         toast.show("success", "Task updated successfully.");
+        window.dispatchEvent(new CustomEvent("prodify-broadcast-notification", {
+          detail: { message: `📝 Task "${editName.trim()}" details were updated by a teammate.` }
+        }));
         fetchTasks();
         setIsEditModalOpen(false);
         if (selectedTask && selectedTask.id === editTaskId) {
@@ -327,6 +339,9 @@ export default function MyTasksPage() {
 
       if (res.ok) {
         const data = await res.json();
+        window.dispatchEvent(new CustomEvent("prodify-broadcast-notification", {
+          detail: { message: `💬 Work submission comment added to task "${selectedTask?.name}" by a teammate.` }
+        }));
         setComments(prev => [...prev, data.comment]);
         setNewCommentText("");
         setAttachedFile(null);
